@@ -242,6 +242,28 @@ by reasoning, and both are worth recording because the fixes are not cosmetic:
   architect, for a question about James Watt). Fix: `min_rel_ratio`, admitting
   weak candidates only when needed to satisfy `min_docs`.
 
+**The floor then over-corrected, and the `pool` setting caught it.** Running the
+standard 20-paragraph MuSiQue setting for the first time showed our system
+*losing* to the hybrid+rerank baseline there, while building a much smaller
+context. The cause was scope, not implementation: with 20 clean candidates the
+token budget is never contested, so rejecting a head candidate forfeits recall
+for no saving. The floor was only ever meant to stop the diversity and coverage
+terms dragging up the deep *tail*. Applying it to the tail only
+(`floor_exempt_top_k`), measured in both settings with
+`scripts/ab_assembly.py` (n = 150, retrieval-only):
+
+| `AllDocs` vs `hybrid_rerank` | floor on all candidates | floor on the tail only |
+|---|---|---|
+| `unified` | 58.0 (+8.7) | **60.7 (+11.4)** |
+| `pool` | 63.3 (**−2.0**) | **72.0 (+6.7)** |
+
+Tail-only wins in both settings *and* lands at near-exact budget parity with
+the baseline (739 vs 718 words unified, 716 vs 721 pool), which makes the
+headline comparison cleaner than the smaller-context variant did. Both ends of
+the frontier stay on the record as ablations (`floor_all`, `no_floor`), because
+the smaller-context setting is the right choice when tokens are the binding
+cost rather than recall.
+
 ### 3.5 Synthesis: a fixed local reader, deliberately not an LLM
 
 The headline evaluation holds the generator **fixed** — same local model, same
@@ -356,6 +378,55 @@ The numeric gate exists because paraphrase-tolerant scoring is most dangerous
 exactly where it is least safe: "1987" and "1978" are semantically
 near-identical and factually opposite.
 
+### Multi-document citation: grounding the chain, not just the answer
+
+Auditing the first full run exposed a gap that the headline retrieval metrics
+hid completely: **`multi_doc_citation` was 0.0 for every system, ours
+included**, even on questions whose assembled context genuinely spanned four
+documents. The reason is structural. An extractive reader emits one span, hence
+one citation, hence one document. The *answer* was grounded; the *reasoning
+that reached it* was not. For an assignment about claim-level citations across
+multiple sources, that is the wrong place to stop.
+
+The fix does not need a generator, because the chain is already known and
+recorded rather than reconstructed: the iterative retriever logs, for every
+passage it adds, which parent passage supplied which bridge entity. Walking
+that chain back from the answer-bearing passage yields one claim per
+intermediate hop, each citing the sentence that states it:
+
+```
+Q: "Where was the creator of the Lap Engine educated?"
+
+  claim 1  "James Watt"            <- Lap Engine,  sentence 0      [hop 1]
+  claim 2  "University of Glasgow"  <- James Watt,  sentence 0      [answer]
+                                        => 2 distinct documents cited
+```
+
+Three properties make this honest rather than decorative:
+
+- **It is derived, not generated.** The bridge entity is a literal surface form
+  present in the parent passage, so each chain claim is a substring of its own
+  citation and L1+L2 verification stays *exact* — the same standard the answer
+  claim is held to, with no paraphrase tolerance invoked.
+- **It cites only what the reader saw.** A hop whose parent passage was dropped
+  by assembly contributes nothing; we never cite evidence that was not in the
+  context.
+- **A single-shot baseline produces one claim and one document, and that is the
+  correct outcome, not a handicap.** The chain is a *product of iterative
+  retrieval*; being unable to produce multi-document claim-level citations is
+  precisely what it means to lack one. EVAL.md says this where it interprets
+  `multi_doc_citation`, rather than letting the number read as a tuning win.
+
+Building this also exposed three genuine defects in the retriever's chain
+bookkeeping, all found by reading real traces rather than by reasoning:
+a passage could become **its own parent** (expanding an entity found in passage
+P frequently re-retrieves P, which contains that entity by construction); the
+pool's best-score overwrite **destroyed the shortest derivation** of a passage
+re-reached later; and an **empty round aborted the whole search**, so a round
+that spent its beam on weak entities prevented rounds 2–3 from ever expanding
+the bridge that mattered — turning one correct answer into a wrong one.
+Score and provenance are now separate concerns, and an empty round continues.
+
 ---
 
 ## 5. Tradeoffs
@@ -370,6 +441,7 @@ near-identical and factually opposite.
 | Paragraph-level retrieval unit | precise citations, natural semantics | a fact spanning two paragraphs needs both retrieved |
 | Hard per-document cap | guarantees multi-document context | can exclude a genuinely 3-passage-deep single source |
 | L2 lexical + numeric support | no 1.4 GB NLI dependency; exact for extractive claims | approximate for free-form paraphrase |
+| Chain claims from retrieval provenance | multi-document claim-level citations with exact verification, no generator | only as deep as the chain the retriever actually followed; a single-shot system gets none |
 
 ---
 
@@ -395,6 +467,18 @@ reachability envelope, not at 100 %.
 and later rounds confidently retrieve coherent, irrelevant evidence. The
 adaptive stop limits the cost but does not detect the error.
 
+**The adaptive stop is largely inert, and we report it rather than hide it.**
+The criterion compares a round's best *per-round min-max normalised* chain
+score against the running best — but round 0's normalisation pins that best at
+1.0, so the threshold can essentially never bind. The traces
+(`scripts/analyze_traces.py`) report how often it actually fires, and the
+`no_adaptive_stop` ablation measures what disabling it costs; if that ablation
+shows no difference, the component is doing nothing and the honest reading is
+that our hop budget is effectively fixed at `max_rounds`, not adaptive. A
+meaningful replacement is item 2 in §7: stop when a round contributes nothing
+that reaches the final context, which is comparable across rounds in a way
+normalised scores are not.
+
 **Reading failure with complete evidence.** The largest single bucket in the
 failure analysis is questions where the context contains *all* gold documents
 and the extractive reader still answers wrongly — a reader limitation, not a
@@ -411,8 +495,11 @@ capitalisation and does not transfer to them.
    not retrieval-level: run the implemented LLM reader as a *secondary* protocol
    alongside the fixed reader, so answer quality rises while credit attribution
    is preserved by reporting both plus `closed_book`.
-2. **Hop-aware stopping with an answerability check.** Today stopping is based
-   on score gain. A cheap "is the question now answerable from the pool?" test
+2. **Replace the inert adaptive stop.** The current criterion compares
+   per-round normalised scores, which round 0 pins at 1.0, so it barely fires
+   (§6). A criterion that *is* comparable across rounds: stop when a round
+   contributes no passage that reaches the final assembled context. Combined
+   with a cheap "is the question answerable from the pool yet?" test, this
    would stop 2-hop questions after one round and let genuine 4-hop questions
    spend more, instead of applying one threshold to both.
 3. **Suppress answer-entity bridging.** Score candidate bridges by whether they

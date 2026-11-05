@@ -306,6 +306,21 @@ class AssembleConfig(_Base):
     # before this floor existed, a question about James Watt admitted a passage
     # about a Thai architect and the reader answered from it.
     min_rel_ratio: float = 0.35
+    # Apply the relevance floor to the TAIL only, exempting anything already
+    # within the top `max_passages` by relevance.
+    #
+    # The floor exists to stop the diversity and coverage terms dragging up
+    # deep-tail passages; it was never meant to reject head candidates. With
+    # the floor applied to everything, the 20-paragraph `pool` setting suffers:
+    # there the budget is not the binding constraint (10 passages of ~80 words
+    # fit inside 900), so rejecting a mid-ranked candidate forfeits recall for
+    # no saving. Exempting the head keeps the tail protection and removes the
+    # cost. Measured by scripts/ab_assembly.py in both settings.
+    #
+    # Defaults to False: that is the behaviour the committed 500-question run
+    # was produced with, so the default must not drift away from the artefacts
+    # until the A/B justifies flipping it.
+    floor_exempt_top_k: bool = False
     # Hard cap on passages taken from any single document.
     max_per_doc: int = 2
     # Maximal-marginal-relevance tradeoff; 1.0 = pure relevance.

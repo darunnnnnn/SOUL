@@ -211,8 +211,13 @@ class ContextAssembler:
                     continue
                 if need_new_doc and p.doc_id in per_doc:
                     continue
+                # Relevance floor. `cand_ids` is in descending relevance
+                # order, so `i` IS the relevance rank: exempting i <
+                # max_passages applies the floor to the tail only.
                 if rel[i] < rel_floor and not need_new_doc:
-                    continue
+                    exempt = acfg.floor_exempt_top_k and i < acfg.max_passages
+                    if not exempt:
+                        continue
 
                 # marginal coverage of still-uncovered target vocabulary,
                 # weighted by how informative each uncovered term is

@@ -29,11 +29,12 @@ change any result -- it is a speed optimisation only, and
 from __future__ import annotations
 
 import hashlib
+import json
 import sqlite3
 import threading
 from pathlib import Path
 
-__all__ = ["ScoreCache"]
+__all__ = ["ScoreCache", "BlobCache"]
 
 
 class ScoreCache:
@@ -100,6 +101,90 @@ class ScoreCache:
             "cache_hits": float(self.hits),
             "cache_misses": float(self.misses),
             "cache_hit_rate": self.hits / total if total else 0.0,
+        }
+
+    def close(self) -> None:
+        if self._conn is not None:
+            self._conn.close()
+            self._conn = None
+
+
+class BlobCache:
+    """Content-addressed (key -> JSON string) store, same backing as ScoreCache.
+
+    Used to memoise whole reader outputs. The reader is the dominant cost of
+    the evaluation -- retrieval is ~2 ms per question while a reader pass over a
+    700-word context is ~1.5 s -- and across an ablation sweep the *same*
+    context recurs constantly: an ablation that changes a retrieval
+    hyperparameter frequently leaves the final assembled context untouched for
+    most questions.
+
+    Memoising is exact rather than approximate: the key covers every input the
+    reader is a function of (model, reading mode, truncation/stride, span
+    limits, the passage-selection weight, the answer-type focus, the question,
+    and the ordered passage ids *with* their scores -- scores matter because
+    they drive the passage prior). Identical inputs to a deterministic model
+    under ``inference_mode`` produce identical outputs, so this changes no
+    result; ``tests/test_reader_cache.py`` asserts cached and uncached answers
+    agree field for field.
+    """
+
+    def __init__(self, path: Path | None, namespace: str) -> None:
+        self.namespace = namespace
+        self.enabled = path is not None
+        self.hits = 0
+        self.misses = 0
+        self._lock = threading.Lock()
+        self._conn: sqlite3.Connection | None = None
+        if path is not None:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            self._conn = sqlite3.connect(str(path), check_same_thread=False)
+            self._conn.execute("PRAGMA journal_mode=WAL")
+            self._conn.execute("PRAGMA synchronous=NORMAL")
+            self._conn.execute(
+                "CREATE TABLE IF NOT EXISTS blobs (k TEXT PRIMARY KEY, v TEXT)"
+            )
+            self._conn.commit()
+
+    def key(self, *parts: str) -> str:
+        return hashlib.sha1(
+            "\x1f".join([self.namespace, *parts]).encode("utf-8")
+        ).hexdigest()
+
+    def get(self, key: str) -> dict | None:
+        if self._conn is None:
+            return None
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT v FROM blobs WHERE k = ?", (key,)
+            ).fetchone()
+        if row is None:
+            self.misses += 1
+            return None
+        self.hits += 1
+        try:
+            return json.loads(row[0])
+        except Exception:
+            # A corrupt row must behave as a miss, never as a wrong answer.
+            self.misses += 1
+            return None
+
+    def put(self, key: str, value: dict) -> None:
+        if self._conn is None:
+            return
+        with self._lock:
+            self._conn.execute(
+                "INSERT OR REPLACE INTO blobs (k, v) VALUES (?, ?)",
+                (key, json.dumps(value, ensure_ascii=False)),
+            )
+            self._conn.commit()
+
+    def stats(self) -> dict[str, float]:
+        total = self.hits + self.misses
+        return {
+            "reader_cache_hits": float(self.hits),
+            "reader_cache_misses": float(self.misses),
+            "reader_cache_hit_rate": self.hits / total if total else 0.0,
         }
 
     def close(self) -> None:

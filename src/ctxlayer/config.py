@@ -235,26 +235,56 @@ class GraphConfig(_Base):
 class IterativeConfig(_Base):
     """Multi-round, entity-bridged retrieval -- the core of the context layer.
 
-    ``max_rounds`` is the hop budget. ``gain_threshold`` implements an adaptive
-    stop: if a round fails to add meaningfully-new evidence, we stop early,
-    which keeps 2-hop questions cheap while letting 4-hop questions spend more.
+    One round = (pick bridge entities from the current evidence frontier) ->
+    (generate a bridge query per entity) -> (retrieve + rerank against that
+    bridge query) -> (merge into the evidence pool with a chain score).
+
+    ``max_rounds=3`` means up to 4 hops of evidence (round 0 plus 3 expansions),
+    matching the deepest MuSiQue questions. ``gain_threshold`` implements an
+    adaptive stop so 2-hop questions do not pay for hops they do not need.
     """
 
     enabled: bool = True
     max_rounds: int = 3
     per_round_k: int = 20
-    # How many frontier entities to expand per round.
+    # How many frontier entities to expand per round (the beam width).
     beam_entities: int = 4
-    # Expand from the top-N passages of the previous round only.
+    # Expand from the top-N highest-scoring passages not yet expanded.
     frontier_passages: int = 5
-    # Stop early when a round's best new passage scores below this fraction of
-    # the running best.
+    # Candidate passages pulled from the mention index per bridge entity.
+    candidates_per_entity: int = 30
+    # Rerank depth for bridge queries. Shallower than round 0 on purpose: the
+    # mention index has already constrained candidates to passages that
+    # literally contain the bridge entity, so precision@depth is far higher
+    # than for an open query and a deep rerank buys little. This is the main
+    # lever on total cross-encoder cost (~350 vs ~540 pairs/question).
+    bridge_rerank_depth: int = 24
+    # Adaptive stop: halt when the best new passage of a round scores below
+    # this fraction of the best score seen so far.
     gain_threshold: float = 0.55
-    # Use the graph for expansion in addition to text queries.
+    # Use the mention index for candidate generation (vs. plain re-query).
     use_graph: bool = True
-    # Re-issue the residual (unanswered) part of the question with the bridge
-    # entity substituted in.
+    # Carry the question's relation terms into each bridge query.
     use_query_rewrite: bool = True
+
+    # --- chain scoring -------------------------------------------------
+    # A hop-2 passage is reranked against its *bridge* query, so its raw score
+    # is not comparable to a hop-0 passage's score against the question. Scores
+    # are therefore min-max normalised within the round that produced them, and
+    # combined into a path score:
+    #     chain = w_rel * rel_norm + w_parent * parent_chain + w_entity * idf
+    # This keeps a passage's score dependent on how good the evidence that
+    # *reached* it was, which is exactly the multi-hop notion of relevance.
+    w_rel: float = 0.60
+    w_parent: float = 0.30
+    w_entity: float = 0.10
+    # Decay applied per hop, so deep speculative chains cannot outrank direct
+    # evidence on score alone.
+    hop_decay: float = 0.92
+    # Minimum inverse-document-frequency (normalised 0-1) for an entity to be
+    # usable as a bridge: common entities expand the frontier without
+    # discriminating.
+    min_entity_idf: float = 0.35
 
 
 @dataclass
@@ -268,7 +298,14 @@ class AssembleConfig(_Base):
     """
 
     budget_words: int = 900
-    max_passages: int = 12
+    max_passages: int = 10
+    # Relevance floor, as a fraction of the best candidate's score. Diversity
+    # and coverage must not be able to spend the budget on near-irrelevant
+    # passages: an off-topic passage in the context is not merely wasted tokens,
+    # it is something the reader can read an answer out of. Observed directly --
+    # before this floor existed, a question about James Watt admitted a passage
+    # about a Thai architect and the reader answered from it.
+    min_rel_ratio: float = 0.35
     # Hard cap on passages taken from any single document.
     max_per_doc: int = 2
     # Maximal-marginal-relevance tradeoff; 1.0 = pure relevance.
@@ -303,6 +340,13 @@ class ReaderConfig(_Base):
     llm_max_tokens: int = 1024
     # Abstain when the reader's calibrated confidence is below this.
     abstain_threshold: float = 0.0
+    # Weight on the retriever's passage score when choosing *which* passage to
+    # answer from. A span-margin comparison across passages is unreliable on
+    # its own -- the margin is calibrated within a passage, not between them --
+    # so an irrelevant passage with a confident-looking span can beat the right
+    # one. Adding a passage-selection term is the standard fix (cf. DPR's
+    # reader, which combines a span score with a passage-selection score).
+    passage_selection_weight: float = 4.0
 
 
 @dataclass

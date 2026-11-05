@@ -381,19 +381,35 @@ def write_eval_md(paths: PathsConfig, ecfg: EvalConfig) -> Path:
 
     # ------------------------------------------------------------ ablations
     A("## 5. Ablations\n")
+    # Ablations live in their own directory with their own reference runs,
+    # because they run on a smaller question set and report.py (correctly)
+    # refuses to pair runs over differing question sets.
+    abl_summary = summary
+    abl_n = n
+    if not abls:
+        try:
+            rs_abl = load_runs(paths, f"{setting}_ablation")
+            abls = sorted(s for s in rs_abl.runs if s.startswith("abl_"))
+            abl_summary = rs_abl.summary()
+            abl_n = rs_abl.n
+        except Exception:
+            abls = []
     if not abls:
         A("_No ablation runs found. Produce them with "
           "`python -m ctxlayer.cli ablate`._\n")
     else:
-        A("Each ablation is the `ours` config with **exactly one field "
-          "changed** (`SystemConfig.replace` raises on an unknown field, and "
-          "`tests/test_pipeline.py::test_ablation_is_a_single_field_delta` "
-          "asserts the delta is single-field). Sorted by damage to `AllDocs`.\n")
-        ours_row = summary.get("ours", {})
+        A(f"Each ablation is the `ours` config with **exactly one field "
+          f"changed** (`SystemConfig.replace` raises on an unknown field, and "
+          f"`tests/test_pipeline.py::test_ablation_is_a_single_field_delta` "
+          f"asserts the delta is single-field). Run on **n = {abl_n}** "
+          f"questions -- the development split, so that any design decision "
+          f"informed by this table leaves the held-out split in section 4 "
+          f"untouched. Sorted by damage to `AllDocs`.\n")
+        ours_row = abl_summary.get("ours", {})
         base_alldocs = ours_row.get("ctx_all_docs", {}).get("mean", 0.0)
         rows_abl = []
         for s in abls:
-            row = summary.get(s, {})
+            row = abl_summary.get(s, {})
             v = row.get("ctx_all_docs", {}).get("mean", 0.0)
             rows_abl.append((v - base_alldocs, s, row))
         rows_abl.sort()

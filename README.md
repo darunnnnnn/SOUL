@@ -61,7 +61,7 @@ Models downloaded on first run (all small, all public):
 git clone <this-repo> && cd ctxlayer
 python -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
 pip install -e .
-pytest -q                                              # 69 tests, ~5 s, no network
+pytest -q                                              # 156 tests, no network
 ```
 
 ## Reproduce everything with one command
@@ -110,6 +110,10 @@ python -m ctxlayer.cli ablate --list                     # show the suite
 
 # 7. Rebuild every published number from the raw outputs — offline, seconds
 python -m ctxlayer.cli report --setting unified --write-md
+python -m ctxlayer.cli report --setting unified --holdout   # tuning questions dropped
+
+# Or run steps 4-7 unattended, in order:
+bash scripts/finalize.sh
 ```
 
 ### Runtime and cost
@@ -121,6 +125,11 @@ python -m ctxlayer.cli report --setting unified --write-md
 | `eval`, 500 q × 7 systems | ~2.5–3 h | $0 |
 | `ablate`, 200 q × 20 ablations | ~2–3 h (cross-encoder cache makes this far cheaper than 20 full runs) | $0 |
 | `report` | ~10 s, offline | $0 |
+
+Re-runs and ablations are far cheaper than the first pass: the cross-encoder
+score cache and an exact-input reader cache mean an unchanged context is never
+re-read. Re-running a baseline whose contexts did not change takes seconds
+rather than minutes.
 
 The persistent cross-encoder score cache (`data/cache/rerank_scores.sqlite`)
 means re-runs and ablations reuse scored `(query, passage)` pairs. It is keyed on
@@ -139,7 +148,7 @@ misses the cache rather than silently reusing another model's scores.
 | `ask` | answer one question, printing context, bridges and verified citations |
 | `eval` | run systems → per-question raw outputs |
 | `ablate` | run the ablation suite |
-| `report` | rebuild all tables from raw outputs; `--write-md` regenerates EVAL.md |
+| `report` | rebuild all tables from raw outputs; `--write-md` regenerates EVAL.md; `--holdout` drops the tuning questions |
 | `diagnose` | reproduce the design measurements (below) |
 | `reproduce` | all of the above, one command |
 
@@ -160,6 +169,28 @@ python -m ctxlayer.cli diagnose anchors
 
 # Honest failure analysis over the raw outputs, with examples
 python -m ctxlayer.cli diagnose failures
+```
+
+Analyses over the committed raw outputs (no model, no retrieval):
+
+```bash
+# At which hop was each gold passage found? Evidence found at hop >= 1 is
+# unreachable by ANY single-shot retriever, however good its reranker --
+# this is the direct quantification of the central claim.
+python scripts/analyze_traces.py unified ours
+
+# Why the assembly relevance floor applies to the tail only: A/B in both
+# retrieval settings, retrieval-only so it is cheap.
+python scripts/ab_assembly.py 150 unified,pool
+
+# Why the reader concatenates rather than scoring passages independently,
+# measured on the oracle condition (gold paragraphs only, so any failure is
+# a reading failure).
+python scripts/reader_mode_probe.py 60
+
+# Cold- vs warm-cache latency. The per-question latency in the raw outputs is
+# cache-warm, i.e. the amortised cost inside a sweep, not a fresh query.
+python scripts/bench_latency.py 25 unified
 ```
 
 ---
@@ -258,7 +289,15 @@ src/ctxlayer/
     cite.py              L1/L2/L3 citation verification
   eval/
     metrics.py  stats.py  runner.py  report.py  ablations.py  diagnose.py  writeup.py
-tests/                   69 tests: metrics, provenance, retrieval, assembly, config
+scripts/
+  walkthrough.py         the 5-10 minute scripted tour
+  analyze_traces.py      hop at which each gold passage was found
+  ab_assembly.py         A/B the assembly floor in both settings
+  bench_latency.py       cold- vs warm-cache latency
+  reader_mode_probe.py   per-passage vs concat reading, on the oracle condition
+  finalize.sh            ablations + pool + latency + report, unattended
+tests/                   156 tests: metrics, provenance, retrieval, assembly,
+                         config, caches, report guards, CLI
 eval/raw_outputs/        per-question records (the evidence)
 eval/results/            rebuilt aggregates (derived)
 ```
@@ -269,7 +308,7 @@ eval/results/            rebuilt aggregates (derived)
 
 | Requirement | Where |
 |---|---|
-| **1. Provenance** — every claim traces to a specific source location | Citations are sentence `Anchor`s (`<doc_id>::p<ord>::s<idx>`) with character offsets, minted at ingestion and verified by re-reading the source. `diagnose anchors` checks all ~24k exhaustively. `cite.py` enforces L1 resolvable → L2 supported → L3 repair. |
+| **1. Provenance** — every claim traces to a specific source location | Citations are sentence `Anchor`s (`<doc_id>::p<ord>::s<idx>`) with character offsets, minted at ingestion and verified by re-reading the source. `diagnose anchors` checks all ~24k exhaustively. `cite.py` enforces L1 resolvable → L2 supported → L3 repair. Claim-level and **multi-document**: the recorded retrieval chain grounds each intermediate hop in the passage that supplied its bridge entity, so a 2-hop answer cites two documents at specific sentences. |
 | **2. Genuinely multi-document** | The 54 dev questions whose gold evidence sits in a single document are **excluded** (`diagnose corpus` asserts it). Coverage is measured over **distinct documents** (`ctx_all_docs`), so several paragraphs of one article can never satisfy it — and `tests/test_metrics.py` has a test for exactly that. Assembly enforces a hard per-document cap. |
 | **3. Open benchmark, measured improvement** | MuSiQue-Ans v1.0 dev (sha256-pinned), chosen and justified in EVAL.md §1. Baselines up to `hybrid + cross-encoder`. Paired permutation tests, bootstrap CIs, Holm correction, reported at equal token budget. |
 | **4. Reproducible evaluation** | `python -m ctxlayer.cli reproduce`. Subset selection is a seeded pure function; the runner only writes raw records and `report` recomputes every number from them offline, refusing to aggregate runs with mismatched question sets, corpus fingerprints or readers. |

@@ -327,6 +327,15 @@ class ReaderConfig(_Base):
     """
 
     kind: str = "extractive"  # extractive | llm | none
+    # "concat"       read the whole assembled context as one windowed sequence,
+    #                so the reader can COMPOSE hops. Required for multi-hop:
+    #                the answer-bearing paragraph often does not mention the
+    #                question's own entities, so a reader shown that paragraph
+    #                alone cannot connect them. Measured: per-passage reading
+    #                caps oracle EM at 22.5 on this subset.
+    # "per_passage"  score each passage independently. Simpler provenance and
+    #                no position bias, but cannot compose. Kept as an ablation.
+    mode: str = "concat"
     model: str = "deepset/roberta-base-squad2"
     max_length: int = 384
     stride: int = 128

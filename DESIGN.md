@@ -140,11 +140,11 @@ upper-bounds any iterative method.
 
 | Bridge mechanism | Gold-chain reachability |
 |---|---|
-| Title-keyed document link graph | **34.3 %** |
-| Surface-form **mention** index | **89.5 %** |
+| Title-keyed document link graph | **30.4 %** |
+| Surface-form **mention** index | **90.3 %** |
 
 The title graph fails *structurally*, and the root cause is measurable: only
-**21.9 %** of MuSiQue bridge answers are themselves article titles in the
+**22.5 %** of MuSiQue bridge answers are themselves article titles in the
 corpus. The hop-*n+1* bridge entity is normally a *mention inside* the next gold
 paragraph — *Steve Hillage* appears in Giraudy's article, but there is no
 *Steve Hillage* node to traverse to. So I threw the graph away and indexed
@@ -264,14 +264,31 @@ enabled with one env var. It is not used for the headline numbers.
 
 **Reading protocol, chosen by measurement.** I first scored each passage
 independently and took the globally best span — attractive because provenance is
-exact and there is no "lost in the middle" position bias. On the oracle
-condition (gold paragraphs only, so any failure is a *reading* failure) that
-protocol capped EM at **22.5**. The reason is structural: per-passage reading
-cannot *compose* hops — the paragraph holding the answer often never mentions
-the question's own entities. So the default reads the assembled context as one
-windowed sequence, keeping an offset→passage map so a span still resolves to a
-specific passage and then to a specific sentence. The per-passage mode is
-retained as an ablation.
+exact and there is no "lost in the middle" position bias. It was the wrong
+choice, and the oracle condition (gold paragraphs only, so any failure is a
+*reading* failure) showed why. Measured with
+`scripts/reader_mode_probe.py` (n = 60):
+
+| Context | Reading protocol | EM | F1 |
+|---|---|---|---|
+| `oracle` | per-passage | 28.3 | 40.1 |
+| `oracle` | concat | **36.7** | 47.9 |
+| `ours` | per-passage | 20.0 | 29.9 |
+| `ours` | concat (first attempt) | 15.0 | 24.2 |
+| `ours` | **concat + passage prior** | **20.0** | **30.4** |
+
+Per-passage reading cannot *compose* hops: the paragraph holding the answer
+often never mentions the question's own entities, so a reader shown that
+paragraph alone has nothing to connect. Concatenating fixed that (+8.4 EM on
+oracle) but initially **lost 5 points on retrieved context** — because it also
+discarded the retriever's opinion, letting the reader take a confident-looking
+span out of a distractor. Restoring the passage-score prior inside the
+concatenated scoring recovers that: the final protocol is equal to per-passage
+on retrieved context, +8.4 EM on clean context, and faster. Provenance survives
+because the concatenated string is built here with an explicit
+(start, end) → passage map, so a span resolves to a passage and then, in
+passage-local coordinates, to a sentence anchor. Per-passage mode is retained as
+an ablation.
 
 This is the honest limitation of the submission: with a fixed extractive reader,
 `EM`/`F1` measure *"did the context layer put the answer-bearing paragraph and
@@ -346,7 +363,7 @@ near-identical and factually opposite.
 | Decision | Gained | Paid |
 |---|---|---|
 | Iterative retrieval | reaches lexically dark hops; the main gain | ~13 queries/question instead of 1; more retrieval compute |
-| Mention index for candidates | 89.5 % vs 34.3 % chain reachability | 76k-key index; recall envelope ~18 % of corpus must be reranked down |
+| Mention index for candidates | 90.3 % vs 30.4 % chain reachability | 76k-key index; recall envelope ~18 % of corpus must be reranked down |
 | Exact vector search | no hidden ANN recall ceiling | O(N) per query — would need ANN past ~10⁶ passages |
 | Fixed local extractive reader | clean credit attribution, determinism, zero cost | low absolute EM; `EM`/`F1` discriminate weakly (see §3.5) |
 | Rule-based query planning | gain is attributable to retrieval, not to an LLM | brittle on questions whose relation is implicit |
@@ -371,7 +388,7 @@ came first", "the larger of the two") give the bridge query no usable signal.
 
 **Entity-poor first hops.** If round 0 retrieves a passage with few proper
 nouns, or the gold chain passes through a common entity pruned by
-`max_entity_df`, the bridge never forms. This bounds our recall at the ~89.5 %
+`max_entity_df`, the bridge never forms. This bounds our recall at the ~90.3 %
 reachability envelope, not at 100 %.
 
 **Error cascade.** A wrong round-0 passage sends the beam down a wrong chain,

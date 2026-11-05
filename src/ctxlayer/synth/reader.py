@@ -194,9 +194,10 @@ class ExtractiveReader:
         Giraudy*) says only "her partner Steve Hillage" -- it never mentions
         *Green*. A reader shown that paragraph alone, with the original
         multi-hop question, has no way to connect them. Measured on the oracle
-        condition (gold paragraphs only), per-passage reading reached just
-        22.5 EM, so the reader -- not the context layer -- was the binding
-        constraint and answer metrics could not discriminate between systems.
+        condition (gold paragraphs only, n=60), per-passage reading reached
+        28.3 EM against 36.7 for concatenation -- so the reader, not the
+        context layer, was the binding constraint, and answer metrics could
+        barely discriminate between systems.
 
         Concatenating lets the reader see the hop-1 and hop-2 evidence in one
         window, which is what the composition requires.

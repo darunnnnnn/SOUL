@@ -193,13 +193,13 @@ class GraphConfig(_Base):
     This component exists because of a measured failure mode, not a hunch. We
     first built the obvious thing -- a document-link graph keyed on article
     titles -- and measured how often the gold evidence chain is traversable in
-    it: **34.3%**. The reason is structural: in MuSiQue the bridge entity of
+    it: **30.4%**. The reason is structural: in MuSiQue the bridge entity of
     hop *n+1* is usually not an article *title* in the corpus, it is a *mention*
     inside the next gold paragraph. A title-keyed graph cannot reach it.
 
     Replacing title edges with a **surface-form mention index** (every proper-
     noun span in every passage, inverted) raised gold-chain reachability to
-    **92.5%** on the same subset. That measurement is reproducible via
+    **90.3%** on the same subset. That measurement is reproducible via
     ``python -m ctxlayer.cli diagnose reachability`` and is reported in EVAL.md.
 
     Phrase containment is used for candidate *generation* rather than BM25 on
@@ -331,8 +331,9 @@ class ReaderConfig(_Base):
     #                so the reader can COMPOSE hops. Required for multi-hop:
     #                the answer-bearing paragraph often does not mention the
     #                question's own entities, so a reader shown that paragraph
-    #                alone cannot connect them. Measured: per-passage reading
-    #                caps oracle EM at 22.5 on this subset.
+    #                alone cannot connect them. Measured on the oracle
+    #                condition (scripts/reader_mode_probe.py, n=60):
+    #                per-passage 28.3 EM vs concat 36.7 EM.
     # "per_passage"  score each passage independently. Simpler provenance and
     #                no position bias, but cannot compose. Kept as an ablation.
     mode: str = "concat"
@@ -389,11 +390,22 @@ class EvalConfig(_Base):
     # pool; "unified" = one shared knowledge base over every passage in the
     # subset (much harder, and the realistic deployment).
     setting: str = "unified"
+    # Directory label for raw outputs. Normally equal to `setting`, but the
+    # ablation suite uses its own label so it can run on a smaller subset
+    # without breaking the paired-comparison validation in report.py (which
+    # requires every run in a directory to cover an identical question set).
+    # An ablation directory carries its own `ours` and `hybrid_rerank`
+    # reference runs on exactly those questions.
+    out_label: str = ""
     # k values at which retrieval metrics are reported.
     k_values: tuple[int, ...] = (2, 5, 10, 20)
     bootstrap_samples: int = 2000
     permutation_samples: int = 10000
     seed: int = 20251105
+
+    @property
+    def label(self) -> str:
+        return self.out_label or self.setting
 
 
 # --------------------------------------------------------------------------

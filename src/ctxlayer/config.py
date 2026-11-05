@@ -188,22 +188,44 @@ class RerankConfig(_Base):
 
 @dataclass
 class GraphConfig(_Base):
-    """Entity bridge graph built at ingestion time.
+    """Entity mention index built at ingestion time.
 
-    Edges are *document-title mentions*: if passage p (in document A) contains a
-    surface form that matches the title of document B, we add A -> B. This
-    reconstructs, from text alone, the Wikipedia link structure that multi-hop
-    questions were built on top of -- giving the retriever a way to reach a
-    second-hop document whose text shares almost no vocabulary with the
-    question.
+    This component exists because of a measured failure mode, not a hunch. We
+    first built the obvious thing -- a document-link graph keyed on article
+    titles -- and measured how often the gold evidence chain is traversable in
+    it: **34.3%**. The reason is structural: in MuSiQue the bridge entity of
+    hop *n+1* is usually not an article *title* in the corpus, it is a *mention*
+    inside the next gold paragraph. A title-keyed graph cannot reach it.
+
+    Replacing title edges with a **surface-form mention index** (every proper-
+    noun span in every passage, inverted) raised gold-chain reachability to
+    **92.5%** on the same subset. That measurement is reproducible via
+    ``python -m ctxlayer.cli diagnose reachability`` and is reported in EVAL.md.
+
+    Phrase containment is used for candidate *generation* rather than BM25 on
+    the entity string, because a 2-token entity query returns many partial
+    lexical matches, whereas exact span containment is high precision. Scoring
+    of those candidates is still done by the fused retriever + cross-encoder.
     """
 
     enabled: bool = True
+    # --- proper-noun span extraction ---
+    max_entity_words: int = 5
+    min_entity_chars: int = 4
+    # A single-token candidate is accepted as a proper noun only if it appears
+    # capitalised in at least this fraction of its corpus occurrences. This is
+    # a data-driven proper-noun detector: it keeps "Zhejiang" and rejects
+    # "Written"/"During" picked up at sentence start, with no NER dependency
+    # and no model-version coupling.
+    min_cap_ratio: float = 0.6
+    # Entities occurring in more than this many passages are non-discriminative
+    # as bridges and are dropped from the postings (they would expand the
+    # frontier by hundreds of passages for no gain).
+    max_entity_df: int = 60
+    # --- title edges (kept as an additional high-precision signal) ---
+    enable_title_edges: bool = True
     min_title_chars: int = 4
     min_title_words: int = 1
-    # Titles that are common words make catastrophic edges ("Green", "List of
-    # ...", "The Times"). Require the surface form to be capitalised in context
-    # and not be a stopword-only string.
     require_capitalised: bool = True
     max_edges_per_passage: int = 24
     drop_title_prefixes: tuple[str, ...] = ("List of", "Index of", "Outline of")

@@ -67,7 +67,9 @@ def _failure_buckets(rs: RunSet, system: str = "ours") -> tuple[Counter, dict]:
 
 
 def write_eval_md(paths: PathsConfig, ecfg: EvalConfig) -> Path:
-    setting = ecfg.setting
+    # `label`, not `setting`: an ablation directory has its own label, and
+    # reading the wrong directory would silently publish the wrong numbers.
+    setting = ecfg.label
     rep = build_report(paths, setting, ecfg=ecfg)
     rs = load_runs(paths, setting)
     n = rs.n

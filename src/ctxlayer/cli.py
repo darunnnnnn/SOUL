@@ -260,7 +260,8 @@ def cmd_eval(args: argparse.Namespace) -> int:
     from .eval.runner import run_system
 
     paths = PathsConfig()
-    ecfg = EvalConfig(setting=args.setting, seed=args.seed)
+    ecfg = EvalConfig(setting=args.setting, seed=args.seed,
+                      out_label=args.out_label or "")
     systems = args.systems.split(",") if args.systems else list(PRESETS)
     base_cfg = PRESETS["ours"]
     res, kb = _load_kb(paths, base_cfg)
@@ -289,7 +290,8 @@ def cmd_ablate(args: argparse.Namespace) -> int:
     from .eval.ablations import ABLATIONS, run_ablations
 
     paths = PathsConfig()
-    ecfg = EvalConfig(setting=args.setting, seed=args.seed)
+    ecfg = EvalConfig(setting=args.setting, seed=args.seed,
+                      out_label=args.out_label or f"{args.setting}_ablation")
     if args.list:
         for name, (desc, overrides) in ABLATIONS.items():
             print(f"{name:28s} {desc}")
@@ -306,8 +308,9 @@ def cmd_report(args: argparse.Namespace) -> int:
     from .eval.writeup import write_eval_md
 
     paths = PathsConfig()
-    ecfg = EvalConfig(setting=args.setting, seed=args.seed)
-    rep = build_report(paths, args.setting, ecfg=ecfg)
+    ecfg = EvalConfig(setting=args.setting, seed=args.seed,
+                      out_label=args.out_label or "")
+    rep = build_report(paths, ecfg.label, ecfg=ecfg)
     print(f"\n=== {args.setting.upper()} SETTING | n={rep['n_questions']} ===\n")
     print(rep["headline_table"])
     if rep["comparisons"]:
@@ -423,6 +426,8 @@ def build_parser() -> argparse.ArgumentParser:
     e.add_argument("--limit", type=int, default=None)
     e.add_argument("--seed", type=int, default=20251105)
     e.add_argument("--no-reader", action="store_true", help="retrieval metrics only")
+    e.add_argument("--out-label", default=None, dest="out_label",
+                   help="raw-output directory label (default: the setting)")
     e.set_defaults(func=cmd_eval)
 
     ab = sub.add_parser("ablate", help="run the ablation suite")
@@ -432,12 +437,14 @@ def build_parser() -> argparse.ArgumentParser:
     ab.add_argument("--only", default=None)
     ab.add_argument("--list", action="store_true")
     ab.add_argument("--no-reader", action="store_true")
+    ab.add_argument("--out-label", default=None, dest="out_label")
     ab.set_defaults(func=cmd_ablate)
 
     r = sub.add_parser("report", help="rebuild results from raw outputs")
     r.add_argument("--setting", default="unified", choices=["unified", "pool"])
     r.add_argument("--seed", type=int, default=20251105)
     r.add_argument("--write-md", action="store_true", help="also regenerate EVAL.md")
+    r.add_argument("--out-label", default=None, dest="out_label")
     r.set_defaults(func=cmd_report)
 
     dg = sub.add_parser("diagnose", help="reproduce the design measurements")

@@ -124,7 +124,7 @@ def run_system(
     """Run one system over the question set, writing one JSON record per line."""
     setting = setting or ecfg.setting
     seed_everything(ecfg.seed)
-    path = raw_output_path(paths, setting, cfg.name)
+    path = raw_output_path(paths, ecfg.label, cfg.name)
 
     p2d = {p.passage_id: p.doc_id for p in kb.passages.values()}
     a2p = {a.anchor_id: a.passage_id for a in kb.anchors.values()}

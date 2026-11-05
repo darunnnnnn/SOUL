@@ -23,11 +23,11 @@ We built the obvious thing first -- a document-link graph keyed on article
 titles, approximating Wikipedia's link structure -- and measured how often the
 gold evidence chain is actually traversable in it:
 
-    gold-chain reachability, title-keyed link graph .......... 34.3%
-    gold-chain reachability, surface-form mention index ...... 92.5%
+    gold-chain reachability, title-keyed link graph .......... 30.4%
+    gold-chain reachability, surface-form mention index ...... 90.3%
 
 The title graph fails structurally: the hop-*n+1* bridge entity is usually not
-an article title in the corpus (only 21.9% of MuSiQue bridge answers resolve to
+an article title in the corpus (only 22.5% of MuSiQue bridge answers resolve to
 a title here), it is a *mention* inside the next gold paragraph. So we index
 mentions. Both numbers are reproducible with
 ``python -m ctxlayer.cli diagnose reachability``.

@@ -1,0 +1,85 @@
+{
+  "n_questions": 500,
+  "n_passages": 6793,
+  "title_link_graph": {
+    "mechanism": "title_link_graph",
+    "overall": 0.30445246690734057,
+    "n_gold_links": 831,
+    "by_hop_type": {
+      "2hop": {
+        "reached": 74,
+        "total": 254,
+        "rate": 0.29133858267716534
+      },
+      "3hop1": {
+        "reached": 71,
+        "total": 240,
+        "rate": 0.29583333333333334
+      },
+      "3hop2": {
+        "reached": 19,
+        "total": 82,
+        "rate": 0.23170731707317074
+      },
+      "4hop1": {
+        "reached": 60,
+        "total": 156,
+        "rate": 0.38461538461538464
+      },
+      "4hop2": {
+        "reached": 17,
+        "total": 39,
+        "rate": 0.4358974358974359
+      },
+      "4hop3": {
+        "reached": 12,
+        "total": 60,
+        "rate": 0.2
+      }
+    },
+    "mean_candidate_envelope": 206.1
+  },
+  "mention_index": {
+    "mechanism": "mention_index",
+    "overall": 0.9025270758122743,
+    "n_gold_links": 831,
+    "by_hop_type": {
+      "2hop": {
+        "reached": 228,
+        "total": 254,
+        "rate": 0.8976377952755905
+      },
+      "3hop1": {
+        "reached": 219,
+        "total": 240,
+        "rate": 0.9125
+      },
+      "3hop2": {
+        "reached": 77,
+        "total": 82,
+        "rate": 0.9390243902439024
+      },
+      "4hop1": {
+        "reached": 144,
+        "total": 156,
+        "rate": 0.9230769230769231
+      },
+      "4hop2": {
+        "reached": 36,
+        "total": 39,
+        "rate": 0.9230769230769231
+      },
+      "4hop3": {
+        "reached": 46,
+        "total": 60,
+        "rate": 0.7666666666666667
+      }
+    },
+    "mean_candidate_envelope": 1228.1
+  },
+  "bridge_answers_that_are_titles": {
+    "hit": 299,
+    "total": 1331,
+    "rate": 0.22464312546957174
+  }
+}

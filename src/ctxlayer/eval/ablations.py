@@ -146,6 +146,7 @@ def run_ablations(
     kb: KnowledgeBase | None = None,
     reader: Any = None,
     no_reader: bool = False,
+    reference: bool = True,
 ) -> int:
     from .runner import run_system
 

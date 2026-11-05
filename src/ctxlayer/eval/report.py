@@ -290,7 +290,11 @@ def build_report(
     paths: PathsConfig,
     setting: str,
     system: str = "ours",
-    baselines: Sequence[str] = ("bm25", "dense", "hybrid", "hybrid_rerank"),
+    # closed_book is included so the table shows, with the same statistics as
+    # every other row, that the benchmark is not answerable without retrieval.
+    baselines: Sequence[str] = (
+        "closed_book", "bm25", "dense", "hybrid", "hybrid_rerank",
+    ),
     order: Sequence[str] | None = None,
     ecfg: EvalConfig | None = None,
 ) -> dict[str, Any]:

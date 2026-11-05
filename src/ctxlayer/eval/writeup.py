@@ -611,8 +611,11 @@ def write_eval_md(paths: PathsConfig, ecfg: EvalConfig) -> Path:
       "scripts.")
     A("")
 
-    out = Path(PathsConfig.__module__ and paths.resolve("results_dir")).parent.parent
-    target = out / "EVAL.md"
+    from ..config import REPO_ROOT
+
+    # The headline setting owns EVAL.md; any other label writes its own file so
+    # that generating a secondary writeup cannot overwrite the deliverable.
+    target = REPO_ROOT / ("EVAL.md" if setting == "unified" else f"EVAL_{setting}.md")
     target.write_text("\n".join(L) + "\n", encoding="utf-8")
 
     # Also persist the machine-readable summary next to it.

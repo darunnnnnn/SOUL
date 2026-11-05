@@ -29,7 +29,7 @@ from ctxlayer.index.store import KnowledgeBase
 from ctxlayer.ingest import load_processed
 from ctxlayer.pipeline import ContextLayer
 from ctxlayer.retrieve.decompose import analyze_question
-from ctxlayer.synth.cite import verify_citations
+from ctxlayer.synth.cite import attach_evidence_chain, verify_citations
 from ctxlayer.synth.reader import ExtractiveReader
 
 W = 96
@@ -64,6 +64,7 @@ def show_context(ctx, gold=None, limit=6) -> None:
 def answer_and_cite(kb, cfg, question, ctx, gold=None):
     plan = analyze_question(question)
     ans = ExtractiveReader(cfg.reader).read(question, ctx, focus=plan.focus)
+    attach_evidence_chain(kb, ans)
     verify_citations(kb, ans)
     print(f"\n  ANSWER : {ans.answer or '(abstained)'}")
     if gold is not None:

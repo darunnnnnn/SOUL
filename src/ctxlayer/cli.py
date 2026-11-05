@@ -151,7 +151,7 @@ def _load_kb(paths: PathsConfig, cfg: SystemConfig, rebuild: bool = False):
 def cmd_ask(args: argparse.Namespace) -> int:
     from .pipeline import ContextLayer
     from .retrieve.decompose import analyze_question
-    from .synth.cite import verify_citations
+    from .synth.cite import attach_evidence_chain, verify_citations
 
     paths = PathsConfig()
     cfg = load_config(args.config) if args.config else PRESETS[args.system]
@@ -207,6 +207,7 @@ def cmd_ask(args: argparse.Namespace) -> int:
 
     reader = ExtractiveReader(cfg.reader)
     ans = reader.read(question, ctx, focus=plan.focus)
+    attach_evidence_chain(kb, ans)
     verify_citations(kb, ans)
 
     print("\n" + "=" * 100)

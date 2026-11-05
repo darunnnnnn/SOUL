@@ -231,6 +231,12 @@ class RetrievalTrace:
     rounds: list[dict[str, Any]] = field(default_factory=list)
     queries_issued: list[str] = field(default_factory=list)
     bridge_entities: list[str] = field(default_factory=list)
+    # passage_id -> {parent, bridge_entity, hop}: how each passage was reached.
+    # This is the evidence *chain*, and it is what makes multi-document,
+    # claim-level citation possible: the answer span grounds the final hop,
+    # while the chain grounds each intermediate hop in the passage that
+    # actually supplied the bridge entity. See synth.cite.build_evidence_chain.
+    provenance_chain: dict[str, dict[str, Any]] = field(default_factory=dict)
     n_llm_calls: int = 0
     timings_ms: dict[str, float] = field(default_factory=dict)
 

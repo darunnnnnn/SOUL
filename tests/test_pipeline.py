@@ -267,15 +267,41 @@ def test_word_budget_is_respected():
     assert ctx.n_words <= max(15, CORPUS[0].n_words) + max(p.n_words for p in CORPUS)
 
 
-def test_relevance_floor_excludes_weak_candidates():
+def test_relevance_floor_excludes_weak_candidates_when_applied_to_all():
     kb = _kb()
     cand = _ranked(CORPUS[:4], [1.0, 0.9, 0.05, 0.01])
     cfg = PRESETS["ours"].replace(**{"assemble.min_rel_ratio": 0.5,
                                      "assemble.max_per_doc": 9,
-                                     "assemble.min_docs": 1})
+                                     "assemble.min_docs": 1,
+                                     "assemble.floor_exempt_top_k": False})
     ctx = ContextAssembler(kb, cfg).assemble("Steve Hillage Green album", cand)
     kept = set(ctx.passage_ids)
     assert CORPUS[2].passage_id not in kept or CORPUS[3].passage_id not in kept
+
+
+def test_floor_exempts_the_head_but_still_blocks_the_tail():
+    """Tail-only semantics, the measured default (see AssembleConfig).
+
+    The floor exists to stop diversity/coverage dragging up the deep tail, not
+    to reject head candidates -- applying it to everything lost to the baseline
+    in the 20-paragraph setting, where the budget is never contested.
+    """
+    kb = _kb()
+    cand = _ranked(CORPUS[:4], [1.0, 0.9, 0.05, 0.01])
+    # max_passages=4 => all four candidates are "head" and exempt.
+    head_cfg = PRESETS["ours"].replace(**{"assemble.min_rel_ratio": 0.5,
+                                          "assemble.max_per_doc": 9,
+                                          "assemble.min_docs": 1,
+                                          "assemble.max_passages": 4,
+                                          "assemble.floor_exempt_top_k": True})
+    kept = set(ContextAssembler(kb, head_cfg).assemble("q", cand).passage_ids)
+    assert CORPUS[2].passage_id in kept and CORPUS[3].passage_id in kept
+
+    # max_passages=2 => candidates at rank >= 2 are tail and face the floor.
+    tail_cfg = head_cfg.replace(**{"assemble.max_passages": 2})
+    kept2 = set(ContextAssembler(kb, tail_cfg).assemble("q", cand).passage_ids)
+    assert CORPUS[2].passage_id not in kept2
+    assert CORPUS[3].passage_id not in kept2
 
 
 def test_assembly_disabled_is_plain_topk_under_same_budget():

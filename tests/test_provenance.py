@@ -254,3 +254,158 @@ def test_cited_doc_ids_resolve_to_distinct_documents():
         context=ctx,
     )
     assert len(ans.cited_doc_ids(kb.anchors)) == 2
+
+
+# --------------------------------------------------------------------------
+# multi-document, claim-level provenance from the retrieval chain
+# --------------------------------------------------------------------------
+
+
+def _ctx_with_chain(passages, chain):
+    """AssembledContext carrying a retrieval provenance chain."""
+    from ctxlayer.schema import RetrievalTrace
+
+    tr = RetrievalTrace()
+    tr.provenance_chain = chain
+    return AssembledContext(
+        passages=list(passages),
+        scores=[1.0] * len(passages),
+        trace=tr,
+    )
+
+
+GREEN = (
+    "Green is the fourth studio album by British musician Steve Hillage. "
+    "It was recorded in 1978."
+)
+GIRAUDY = (
+    "Miquette Giraudy is a keyboard player, best known for her work with her "
+    "partner Steve Hillage."
+)
+
+
+def test_evidence_chain_yields_multi_document_claim_level_citations():
+    """The headline provenance claim, as a test.
+
+    An extractive reader emits one span, hence one citation, hence one
+    document. The retrieval chain supplies the intermediate hop, so the answer
+    plus its chain cite TWO distinct documents, each at a specific sentence.
+    """
+    from ctxlayer.synth.cite import attach_evidence_chain
+
+    green = _mint("Green (Steve Hillage album)", GREEN)
+    giraudy = _mint("Miquette Giraudy", GIRAUDY)
+    kb = _kb(green, giraudy)
+    chain = {
+        giraudy.passage_id: {
+            "parent": green.passage_id,
+            "bridge_entity": "steve hillage",
+            "hop": 1,
+        }
+    }
+    ctx = _ctx_with_chain([green, giraudy], chain)
+    ans = Answer(
+        answer="Miquette Giraudy",
+        claims=[Claim(text="Miquette Giraudy",
+                      anchor_ids=[giraudy.anchors[0].anchor_id])],
+        context=ctx,
+        meta={"passage_id": giraudy.passage_id},
+    )
+    attach_evidence_chain(kb, ans)
+    rep = verify_citations(kb, ans)
+
+    assert len(ans.claims) == 2, "chain hop must add a claim"
+    # Root-first: the bridge fact precedes the answer.
+    assert ans.claims[0].text == "Steve Hillage"
+    assert ans.claims[0].anchor_ids == [green.anchors[0].anchor_id]
+    assert all(c.supported for c in ans.claims)
+    assert rep.n_supported == 2
+    assert len(ans.cited_doc_ids(kb.anchors)) == 2
+
+
+def test_chain_claim_quotes_source_casing_not_the_index_key():
+    """The claim must be a substring of its citation, so L2 is exact."""
+    from ctxlayer.synth.cite import build_evidence_chain
+
+    green = _mint("Green (Steve Hillage album)", GREEN)
+    giraudy = _mint("Miquette Giraudy", GIRAUDY)
+    kb = _kb(green, giraudy)
+    ctx = _ctx_with_chain(
+        [green, giraudy],
+        {giraudy.passage_id: {"parent": green.passage_id,
+                              "bridge_entity": "steve hillage", "hop": 1}},
+    )
+    ans = Answer(answer="x", context=ctx, meta={"passage_id": giraudy.passage_id})
+    chain = build_evidence_chain(kb, ans)
+    assert chain and chain[0].text == "Steve Hillage"   # not "steve hillage"
+    anchor = kb.resolve_anchor(chain[0].anchor_ids[0])
+    assert chain[0].text in anchor.text
+
+
+def test_chain_never_cites_a_passage_outside_the_context():
+    """We must not cite evidence the reader was never shown."""
+    from ctxlayer.synth.cite import build_evidence_chain
+
+    green = _mint("Green (Steve Hillage album)", GREEN)
+    giraudy = _mint("Miquette Giraudy", GIRAUDY)
+    kb = _kb(green, giraudy)
+    # The parent is in the chain but NOT in the assembled context.
+    ctx = _ctx_with_chain(
+        [giraudy],
+        {giraudy.passage_id: {"parent": green.passage_id,
+                              "bridge_entity": "steve hillage", "hop": 1}},
+    )
+    ans = Answer(answer="x", context=ctx, meta={"passage_id": giraudy.passage_id})
+    assert build_evidence_chain(kb, ans) == []
+
+
+def test_chain_requires_the_whole_entity_in_the_cited_sentence():
+    """A partial entity match must not ground a claim."""
+    from ctxlayer.synth.cite import build_evidence_chain
+
+    green = _mint("Green (Steve Hillage album)", GREEN)
+    giraudy = _mint("Miquette Giraudy", GIRAUDY)
+    kb = _kb(green, giraudy)
+    ctx = _ctx_with_chain(
+        [green, giraudy],
+        {giraudy.passage_id: {"parent": green.passage_id,
+                              # "Wolfgang" never appears in the Green passage
+                              "bridge_entity": "wolfgang hillage", "hop": 1}},
+    )
+    ans = Answer(answer="x", context=ctx, meta={"passage_id": giraudy.passage_id})
+    assert build_evidence_chain(kb, ans) == []
+
+
+def test_no_chain_means_answer_claim_only():
+    """A single-shot system has no chain; that is correct, not a handicap."""
+    from ctxlayer.synth.cite import attach_evidence_chain
+
+    giraudy = _mint("Miquette Giraudy", GIRAUDY)
+    kb = _kb(giraudy)
+    ctx = _ctx_with_chain([giraudy], {})
+    ans = Answer(
+        answer="Miquette Giraudy",
+        claims=[Claim(text="Miquette Giraudy",
+                      anchor_ids=[giraudy.anchors[0].anchor_id])],
+        context=ctx,
+        meta={"passage_id": giraudy.passage_id},
+    )
+    attach_evidence_chain(kb, ans)
+    assert len(ans.claims) == 1
+    assert len(ans.cited_doc_ids(kb.anchors)) == 1
+
+
+def test_chain_walk_terminates_on_a_self_loop():
+    """Defensive: a self-parent link must not hang the walk."""
+    from ctxlayer.synth.cite import build_evidence_chain
+
+    giraudy = _mint("Miquette Giraudy", GIRAUDY)
+    kb = _kb(giraudy)
+    ctx = _ctx_with_chain(
+        [giraudy],
+        {giraudy.passage_id: {"parent": giraudy.passage_id,
+                              "bridge_entity": "steve hillage", "hop": 1}},
+    )
+    ans = Answer(answer="x", context=ctx, meta={"passage_id": giraudy.passage_id})
+    chain = build_evidence_chain(kb, ans)       # must return, not loop
+    assert isinstance(chain, list)

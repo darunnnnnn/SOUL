@@ -45,7 +45,14 @@ from ..index.bm25 import STOPWORDS, tokenize
 from ..index.store import KnowledgeBase
 from ..schema import Anchor, Answer, AssembledContext, Claim
 
-__all__ = ["verify_citations", "attribute_claims", "CitationReport", "split_claims"]
+__all__ = [
+    "verify_citations",
+    "attribute_claims",
+    "CitationReport",
+    "split_claims",
+    "build_evidence_chain",
+    "attach_evidence_chain",
+]
 
 _NUMERIC = re.compile(r"\d")
 _SENT_SPLIT = re.compile(r"(?<=[.!?])\s+")
@@ -285,3 +292,151 @@ def attribute_claims(
             )
         )
     return claims
+
+
+# --------------------------------------------------------------------------
+# multi-document, claim-level provenance from the retrieval chain
+# --------------------------------------------------------------------------
+
+
+def build_evidence_chain(
+    kb: KnowledgeBase,
+    answer: Answer,
+    max_hops: int = 4,
+) -> list[Claim]:
+    """Ground each intermediate hop of the retrieval chain in its own source.
+
+    Why this exists
+    ---------------
+    An extractive reader emits one span, hence one citation, hence **one
+    document** -- so `multi_doc_citation` was 0.0 for every system, including
+    ours, even on questions where the context genuinely spanned four documents.
+    That is a real gap against claim-level provenance: the answer is grounded,
+    but the *reasoning* that reached it is not.
+
+    The chain is already known, and it is not a reconstruction after the fact:
+    the iterative retriever recorded, for every passage it added, which parent
+    passage supplied which bridge entity. For "Who is the spouse of the Green
+    performer?" it reached *Miquette Giraudy* from the *Green (Steve Hillage
+    album)* passage via the entity "Steve Hillage". So:
+
+        claim 1  "Steve Hillage"   <- Green (Steve Hillage album), sentence 0
+        claim 2  "Miquette Giraudy" <- Miquette Giraudy, sentence 1   [answer]
+
+    Two documents, two claims, each citing the exact sentence that states it.
+
+    Honesty notes
+    -------------
+    * These claims are **derived from retrieval, not generated**. The bridge
+      entity is a literal surface form present in the parent passage, so the
+      claim is a substring of its cited sentence and L1+L2 verification is
+      exact, not approximate.
+    * A single-shot baseline has no chain, so it emits only the answer claim.
+      That is the correct outcome rather than a handicap: the chain is a
+      product of iterative retrieval, and the inability to produce
+      multi-document claim-level citations is precisely what it means to lack
+      one. EVAL.md states this when interpreting `multi_doc_citation`.
+    * Only passages that are actually in the assembled context contribute. We
+      never cite evidence the reader was not shown.
+    """
+    ctx = answer.context
+    if ctx is None or not ctx.passages:
+        return []
+    chain_map = ctx.trace.provenance_chain if ctx.trace else {}
+    if not chain_map:
+        return []
+
+    in_ctx = {p.passage_id: p for p in ctx.passages}
+    # Start from the passage the answer was extracted from, when known;
+    # otherwise from the highest-scoring context passage that has a chain.
+    start = answer.meta.get("passage_id")
+    if start not in chain_map:
+        start = next((pid for pid in ctx.passage_ids if pid in chain_map), None)
+    if start is None:
+        return []
+
+    # Walk back to the root, collecting (bridge_entity, parent_passage).
+    hops: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    node = start
+    while node in chain_map and len(hops) < max_hops and node not in seen:
+        seen.add(node)
+        link = chain_map[node]
+        parent, entity = link.get("parent"), link.get("bridge_entity")
+        if not parent or not entity:
+            break
+        hops.append((str(entity), str(parent)))
+        node = parent
+
+    claims: list[Claim] = []
+    for entity_key, parent_id in reversed(hops):   # root-first reads naturally
+        parent = in_ctx.get(parent_id)
+        if parent is None:
+            # The bridge's parent was dropped by assembly; citing it would
+            # point at evidence the reader never saw.
+            continue
+        anchor = _anchor_mentioning(parent, entity_key)
+        if anchor is None:
+            continue
+        # Quote the entity as it appears in the source, not the normalised
+        # index key, so the claim text is genuinely a substring of its citation.
+        surface = _surface_in(anchor.text, entity_key) or entity_key
+        claims.append(
+            Claim(
+                text=surface,
+                anchor_ids=[anchor.anchor_id],
+                support_score=1.0,
+            )
+        )
+    return claims
+
+
+def _anchor_mentioning(passage, entity_key: str) -> Anchor | None:
+    """The sentence of ``passage`` that states ``entity_key``, if any."""
+    want = [t for t in entity_key.split() if t]
+    if not want:
+        return None
+    best, best_hits = None, 0
+    for a in passage.anchors:
+        toks = set(tokenize(a.text))
+        hits = sum(1 for t in want if t in toks)
+        if hits > best_hits:
+            best, best_hits = a, hits
+    # Require the whole entity to be present: a partial match would ground the
+    # claim in a sentence that does not actually state it.
+    return best if best_hits == len(want) else None
+
+
+def _surface_in(sentence: str, entity_key: str) -> str | None:
+    """Recover the entity's original casing/spelling from its sentence."""
+    want = [t for t in entity_key.split() if t]
+    if not want:
+        return None
+    words = sentence.split()
+    norm = [tokenize(w) for w in words]
+    for i in range(len(words)):
+        j, k = i, 0
+        while j < len(words) and k < len(want):
+            if norm[j] and norm[j][0] == want[k]:
+                k += 1
+                j += 1
+            elif not norm[j]:
+                j += 1
+            else:
+                break
+        if k == len(want):
+            return " ".join(words[i:j]).strip(" .,;:()’'\"")
+    return None
+
+
+def attach_evidence_chain(kb: KnowledgeBase, answer: Answer) -> Answer:
+    """Prepend the grounded intermediate-hop claims to ``answer.claims``."""
+    chain = build_evidence_chain(kb, answer)
+    if not chain:
+        return answer
+    existing = {tuple(c.anchor_ids) for c in answer.claims}
+    answer.claims = [
+        c for c in chain if tuple(c.anchor_ids) not in existing
+    ] + answer.claims
+    answer.meta["n_chain_claims"] = len(answer.claims) - len(existing)
+    return answer

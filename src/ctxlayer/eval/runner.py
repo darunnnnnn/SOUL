@@ -46,7 +46,7 @@ from ..ingest.musique import IngestResult
 from ..pipeline import ContextLayer
 from ..retrieve.decompose import analyze_question
 from ..schema import Question
-from ..synth.cite import verify_citations
+from ..synth.cite import attach_evidence_chain, verify_citations
 from ..synth.reader import ExtractiveReader
 from .metrics import (
     best_over_aliases,
@@ -227,6 +227,12 @@ def run_system(
                 t1 = time.time()
                 ans = reader.read(q.question, ctx, focus=plan.focus)
                 t_read = (time.time() - t1) * 1000
+                # Ground the intermediate hops the retriever actually followed,
+                # then verify every claim -- chain claims included -- with the
+                # same machinery. A single-shot system has no chain and so is
+                # unaffected, which is the honest outcome rather than a
+                # handicap (see synth.cite.build_evidence_chain).
+                attach_evidence_chain(kb, ans)
                 report = verify_citations(kb, ans)
                 em, f1 = best_over_aliases(ans.answer, q.all_answers())
                 cited = ans.cited_anchor_ids()

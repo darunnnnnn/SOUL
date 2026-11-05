@@ -317,10 +317,20 @@ class AssembleConfig(_Base):
     # no saving. Exempting the head keeps the tail protection and removes the
     # cost. Measured by scripts/ab_assembly.py in both settings.
     #
-    # Defaults to False: that is the behaviour the committed 500-question run
-    # was produced with, so the default must not drift away from the artefacts
-    # until the A/B justifies flipping it.
-    floor_exempt_top_k: bool = False
+    # Enabled after scripts/ab_assembly.py measured it in both settings
+    # (n=150, retrieval-only). AllDocs vs the hybrid+rerank baseline:
+    #
+    #            floor applied to all   floor applied to tail only
+    #   unified        58.0 (+8.7)            60.7 (+11.4)
+    #   pool           63.3 (-2.0)            72.0 ( +6.7)
+    #
+    # In the 20-paragraph `pool` setting the full floor actually LOST to the
+    # baseline: with 20 clean candidates the budget is never contested, so
+    # rejecting a head candidate forfeits recall for no saving. Tail-only wins
+    # in both settings and lands at near-exact budget parity (739 vs 718 words
+    # unified, 716 vs 721 pool), which also makes the comparison cleaner.
+    # `abl_floor_all` keeps the other end of the frontier on the record.
+    floor_exempt_top_k: bool = True
     # Hard cap on passages taken from any single document.
     max_per_doc: int = 2
     # Maximal-marginal-relevance tradeoff; 1.0 = pure relevance.

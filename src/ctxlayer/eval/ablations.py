@@ -86,6 +86,16 @@ ABLATIONS: dict[str, tuple[str, dict[str, Any]]] = {
         "Zero the coverage term, leaving relevance + MMR diversity only.",
         {"assemble.coverage_weight": 0.0},
     ),
+    "floor_all": (
+        "Apply the relevance floor to every candidate instead of the tail "
+        "only. Trades recall for a markedly smaller context: the other end of "
+        "the quality/token frontier.",
+        {"assemble.floor_exempt_top_k": False},
+    ),
+    "no_floor": (
+        "Remove the relevance floor entirely.",
+        {"assemble.min_rel_ratio": 0.0},
+    ),
     "no_mmr": (
         "Pure relevance in assembly (mmr_lambda=1.0), keeping the doc cap.",
         {"assemble.mmr_lambda": 1.0},

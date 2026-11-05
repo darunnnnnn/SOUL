@@ -51,6 +51,7 @@ import time
 from dataclasses import dataclass, field
 
 from ..config import SystemConfig
+from ..index.bm25 import STOPWORDS
 from ..index.store import KnowledgeBase
 from ..schema import RetrievalTrace, ScoredPassage
 from .decompose import QueryPlan, analyze_question
@@ -123,7 +124,14 @@ class IterativeRetriever:
                     continue
                 # Skip what the question already told us: those entities got us
                 # here, and re-expanding them wastes the beam on hop 1.
-                key_toks = set(key.split())
+                #
+                # Stopwords must be stripped before the comparison. Without
+                # that, "the lap engine" is not recognised as the question's
+                # own entity "Lap Engine" (because of the stray "the") and
+                # survives as a bridge. Observed consuming 2 of 4 beam slots
+                # with "the lap" and "the lap engine", crowding out the bridge
+                # that actually mattered.
+                key_toks = {t for t in key.split() if t not in STOPWORDS}
                 if key_toks and key_toks <= plan.anchor_entity_tokens:
                     continue
                 idf = self._entity_idf(key)
@@ -236,11 +244,26 @@ class IterativeRetriever:
                     trace=trace,
                 )
                 for h in hits:
+                    # Never follow a bridge back into the passage that supplied
+                    # it. Re-retrieving the source of a bridge adds no evidence,
+                    # and it was corrupting provenance: a passage could become
+                    # its own parent, because expanding an entity found in
+                    # passage P frequently returns P itself (it contains the
+                    # entity by construction). Observed as
+                    # "James Watt <- 'university of glasgow' from James Watt".
+                    if h.passage_id == parent.passage_id:
+                        continue
                     round_new.append((h, parent, entity_key, self._entity_idf(entity_key)))
 
             if not round_new:
-                trace.add_round(round=rnd, stopped="no_candidates")
-                break
+                # One round's beam yielding nothing must NOT end the search.
+                # The frontier has advanced and these entities are now marked
+                # used, so the next round selects different -- often far
+                # better -- bridges. Breaking here cost a correct answer:
+                # round 1 spent its beam on weak entities, returned nothing,
+                # and the search stopped before ever expanding "james watt".
+                trace.add_round(round=rnd, empty_round=True)
+                continue
 
             # Chain scoring, normalised within this round.
             rel_norm = _minmax_norm([h.score for h, _, _, _ in round_new])
@@ -271,6 +294,22 @@ class IterativeRetriever:
                     bridge_entity=entity_key,
                     components=comp,
                 )
+                # Record how this passage was reached, so synthesis can ground
+                # each intermediate hop in the passage that supplied its bridge
+                # entity (see synth.cite.build_evidence_chain).
+                #
+                # Keep the FIRST link, never overwrite it. Score and provenance
+                # are different concerns: a passage re-reached later by a
+                # higher-scoring chain should take the better score (above) but
+                # keep its original, shortest derivation. Overwriting replaced
+                # the correct "James Watt <- Lap Engine" link with a later,
+                # longer one and destroyed the chain.
+                if h.passage_id not in trace.provenance_chain:
+                    trace.provenance_chain[h.passage_id] = {
+                        "parent": parent.passage_id,
+                        "bridge_entity": entity_key,
+                        "hop": rnd,
+                    }
                 added += 1
 
             trace.add_round(

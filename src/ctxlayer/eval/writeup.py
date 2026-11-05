@@ -262,6 +262,49 @@ def write_eval_md(paths: PathsConfig, ecfg: EvalConfig) -> Path:
                   f"d = {c['effect_size_d']:.2f}) -- {sig}.")
             A("")
 
+    # ---- held-out split -------------------------------------------------
+    # Hyperparameters were chosen on questions[:tuning_split], so the headline
+    # above is partly in-sample. The same artefacts, filtered, give a split no
+    # tuning decision ever touched -- reported so a reader can judge the size
+    # of the effect rather than take our word that it is small.
+    if ecfg.tuning_split > 0:
+        try:
+            rs_ho = load_runs(paths, setting, holdout_skip=ecfg.tuning_split)
+        except Exception:
+            rs_ho = None
+        if rs_ho is not None and rs_ho.n > 0:
+            A("### Held-out split (no tuning decision used these questions)\n")
+            A(f"Assembly hyperparameters were selected with "
+              f"`scripts/ab_assembly.py` on the first {ecfg.tuning_split} "
+              f"questions by sorted id, so the table above is partly "
+              f"in-sample. Dropping them leaves **n = {rs_ho.n}** questions "
+              f"that no tuning decision touched. Same artefacts, same code, "
+              f"only a filter: `python -m ctxlayer.cli report --holdout`.\n")
+            A(markdown_table(rs_ho, core))
+            A("")
+            comps_ho = (
+                rs_ho.comparisons(
+                    "ours", [b for b in BASELINES if b in rs_ho.runs], ecfg=ecfg
+                )
+                if "ours" in rs_ho.runs
+                else []
+            )
+            prim_ho = [
+                c for c in comps_ho
+                if c.baseline == PRIMARY
+                and c.metric in ("ctx_all_docs", "ctx_support_all", "answer_em")
+            ]
+            if prim_ho:
+                A(f"Against `{PRIMARY}` on the held-out split:\n")
+                for c in prim_ho:
+                    sig = "significant" if c.significant else "**not** significant"
+                    A(f"- **{_metric_label(c.metric)}**: "
+                      f"{_pct(c.baseline_mean)} -> {_pct(c.system_mean)} "
+                      f"({c.delta * 100:+.1f} pts, 95% CI "
+                      f"[{c.delta_lo * 100:+.1f}, {c.delta_hi * 100:+.1f}], "
+                      f"adjusted p = {c.p_adjusted:.4f}) -- {sig}.")
+                A("")
+
     # budget parity
     words = {
         s: summary[s].get("ctx_words", {}).get("mean", 0.0)
@@ -284,6 +327,28 @@ def write_eval_md(paths: PathsConfig, ecfg: EvalConfig) -> Path:
               f"{summary[s].get('_latency_ms_median', 0):.0f} | "
               f"{summary[s].get('_n_queries_mean', 0):.1f} |")
         A("")
+        A("The latency column above is measured with the cross-encoder and "
+          "query-embedding caches **warm**, since those caches are what make "
+          "a 22-ablation sweep affordable. That is the amortised cost inside "
+          "a sweep, not the cost of a fresh user query, so cold-cache latency "
+          "is reported separately.\n")
+        lat_path = paths.resolve("results_dir") / f"latency_{setting}.json"
+        if lat_path.exists():
+            lat = json.loads(lat_path.read_text(encoding="utf-8"))
+            A(f"**Cold-cache latency** (every cache bypassed, n = "
+              f"{lat.get('n')}, CPU, idle machine):\n")
+            A("| System | Context build (median ms) | p95 | "
+              "Reader (median ms) | Total (median ms) |")
+            A("|---|---|---|---|---|")
+            for s_name in [x for x in core if x in lat.get("systems", {})]:
+                cold = lat["systems"][s_name]["cold"]
+                A(f"| `{s_name}` | {cold.get('ctx_median_ms', 0):.0f} | "
+                  f"{cold.get('ctx_p95_ms', 0):.0f} | "
+                  f"{cold.get('read_median_ms', 0):.0f} | "
+                  f"{cold.get('total_median_ms', 0):.0f} |")
+            A("")
+            A("Reproduce: `python scripts/bench_latency.py`.\n")
+
         ours_w = words.get("ours", 0.0)
         base_w = words.get(PRIMARY, 0.0)
         if base_w:
@@ -354,6 +419,50 @@ def write_eval_md(paths: PathsConfig, ecfg: EvalConfig) -> Path:
             A(f"The most damaging single change is **`{worst[4:]}`** "
               f"({worst_delta*100:+.1f} points of `AllDocs`), which is the "
               "empirical argument for that component existing.\n")
+
+    # ---- what the iteration actually bought ------------------------------
+    tr_path = paths.resolve("results_dir") / f"trace_analysis_{setting}_ours.json"
+    if tr_path.exists():
+        tr = json.loads(tr_path.read_text(encoding="utf-8"))
+        A("### How much gold evidence is reachable only by a bridge\n")
+        A("Every retrieved passage records the hop at which it entered the "
+          "pool, so the raw outputs answer the central claim directly. A "
+          "passage that entered at hop >= 1 was never proposed by the original "
+          "question, so **no single-shot retriever can reach it, however good "
+          "its reranker** -- reranking only reorders what recall proposed.\n")
+        by_hop = tr.get("gold_by_hop", {})
+        total = sum(by_hop.values()) or 1
+        A("| Hop at which gold evidence was found | Count | Share |")
+        A("|---|---|---|")
+        for h in sorted(by_hop, key=lambda x: int(x)):
+            label = (
+                "round 0 (single-shot reachable)"
+                if int(h) == 0
+                else f"hop {h} (bridged)"
+            )
+            A(f"| {label} | {by_hop[h]} | {by_hop[h] / total * 100:.1f}% |")
+        A("")
+        A(f"**{tr.get('bridged_share_of_retrieved_gold', 0) * 100:.1f}%** of "
+          f"the gold evidence we retrieve is bridge-only, and "
+          f"{tr.get('questions_with_bridged_gold', 0)}/{tr.get('n', 0)} "
+          f"questions depend on at least one bridged passage. Mean queries "
+          f"issued per question: {tr.get('queries_per_question_mean', 0):.1f}.\n")
+        stops = tr.get("stop_reasons", {})
+        if stops:
+            A("Adaptive stop, by reason: "
+              + ", ".join(f"`{k}` {v}" for k, v in sorted(stops.items()))
+              + ".\n")
+            if stops.get("ran_full_budget", 0) / max(1, tr.get("n", 1)) > 0.9:
+                A("**The adaptive stop almost never fires.** Its criterion "
+                  "compares a per-round min-max normalised score against the "
+                  "running best, which round 0's normalisation pins at 1.0, so "
+                  "the threshold can essentially not bind: our hop budget is "
+                  "effectively *fixed* at `max_rounds`, not adaptive. The "
+                  "`no_adaptive_stop` ablation quantifies what it costs, and "
+                  "DESIGN.md proposes a criterion that is comparable across "
+                  "rounds. We report this rather than leave the config field "
+                  "implying an adaptivity the system does not have.\n")
+        A(f"Reproduce: `python scripts/analyze_traces.py {setting} ours`.\n")
 
     # ------------------------------------------------- citations / grounding
     cit_keys = ["citation_validity", "citation_precision", "citation_recall",

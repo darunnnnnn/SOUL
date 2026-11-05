@@ -52,6 +52,15 @@ multi-document retrieval would have been an assertion. Using the benchmark's
 paragraphs means **support recall, document coverage and citation precision are
 all measured against gold labels** rather than eyeballed.
 
+One selection rule is worth stating here because it is the substance of Hard
+Requirement #2, not bookkeeping: MuSiQue-Ans dev contains **54 questions whose
+gold supporting paragraphs all come from a single document**. They are genuine
+multi-hop questions, but their evidence lives in one source, so scoring them
+would let a single-document answer count as a multi-document success. They are
+excluded, and `python -m ctxlayer.cli diagnose corpus` asserts that every
+remaining question requires at least two distinct documents (259 need two, 158
+need three, 83 need four).
+
 On file format — the brief does not prescribe one, and I treat that as a
 question about the *unit of provenance* rather than about parsing. I ingest
 JSONL and normalise to a three-level model (document → passage → sentence

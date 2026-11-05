@@ -44,4 +44,8 @@ python -u -m ctxlayer.cli report --setting unified --write-md || echo "FAILED: r
 python -u -m ctxlayer.cli report --setting unified --holdout  || echo "FAILED: holdout"
 python -u -m ctxlayer.cli report --setting pool                || echo "FAILED: pool report"
 
+# 6. Fail loudly if any hand-written figure disagrees with its artefact.
+log "documentation claims vs artefacts"
+python -u scripts/check_doc_claims.py || echo "FAILED: doc claims"
+
 log "done"

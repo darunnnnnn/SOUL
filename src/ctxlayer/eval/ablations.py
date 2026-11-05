@@ -167,9 +167,15 @@ def run_ablations(
         kb.enable_score_cache(paths, base_cfg)
 
     if reader is None and not no_reader:
+        from ..index.score_cache import BlobCache
         from ..synth.reader import ExtractiveReader
 
-        reader = ExtractiveReader(base_cfg.reader)
+        reader = ExtractiveReader(
+            base_cfg.reader,
+            cache=BlobCache(
+                paths.resolve("cache_dir") / "reader_answers.sqlite", "reader-v1"
+            ),
+        )
 
     questions = res.questions[:limit] if limit else res.questions
     pristine_bm25 = kb.bm25

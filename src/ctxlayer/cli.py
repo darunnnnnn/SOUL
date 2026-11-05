@@ -236,7 +236,13 @@ def cmd_ask(args: argparse.Namespace) -> int:
 # --------------------------------------------------------------------------
 
 
-def _reader_for(cfg: SystemConfig):
+def _reader_for(cfg: SystemConfig, paths: PathsConfig | None = None):
+    """Build the reader, attaching the exact-input memoisation cache.
+
+    The cache is shared by every system and ablation in a run. It cannot change
+    a result -- the key covers every input the reader is a function of -- it
+    only avoids re-running the dominant cost on an identical context.
+    """
     if cfg.reader.kind == "none":
         return None
     if cfg.reader.kind == "llm":
@@ -251,9 +257,15 @@ def _reader_for(cfg: SystemConfig):
             )
         else:
             return r
+    from .index.score_cache import BlobCache
     from .synth.reader import ExtractiveReader
 
-    return ExtractiveReader(cfg.reader)
+    cache = None
+    if paths is not None:
+        cache = BlobCache(
+            paths.resolve("cache_dir") / "reader_answers.sqlite", "reader-v1"
+        )
+    return ExtractiveReader(cfg.reader, cache=cache)
 
 
 def cmd_eval(args: argparse.Namespace) -> int:
@@ -270,7 +282,7 @@ def cmd_eval(args: argparse.Namespace) -> int:
     questions = res.questions[: args.limit] if args.limit else res.questions
     # One reader instance shared by every system: answer-level deltas cannot
     # come from a different generator.
-    reader = None if args.no_reader else _reader_for(base_cfg)
+    reader = None if args.no_reader else _reader_for(base_cfg, paths)
 
     print(f"\ncorpus: {kb.n_passages} passages / {kb.n_documents} documents")
     print(f"questions: {len(questions)}   setting: {args.setting}")
@@ -361,7 +373,7 @@ def cmd_reproduce(args: argparse.Namespace) -> int:
 
     print("\n[4/6] run systems")
     ecfg = EvalConfig(setting=args.setting, seed=args.seed)
-    reader = None if args.no_reader else _reader_for(base_cfg)
+    reader = None if args.no_reader else _reader_for(base_cfg, paths)
     questions = res.questions[: args.limit] if args.limit else res.questions
     for name in ["closed_book", "bm25", "dense", "hybrid", "hybrid_rerank", "ours", "oracle"]:
         run_system(kb, PRESETS[name], questions, ecfg, paths, reader=reader,

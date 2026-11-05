@@ -60,6 +60,7 @@ import numpy as np
 
 from ..config import ReaderConfig
 from ..index.dense import resolve_device
+from ..index.score_cache import BlobCache
 from ..schema import Anchor, Answer, AssembledContext, Claim, Passage
 
 __all__ = ["ExtractiveReader", "pick_anchor_for_span"]
@@ -93,11 +94,79 @@ def pick_anchor_for_span(
 class ExtractiveReader:
     _cache: dict[tuple[str, str], tuple[object, object]] = {}
 
-    def __init__(self, cfg: ReaderConfig) -> None:
+    def __init__(self, cfg: ReaderConfig, cache: "BlobCache | None" = None) -> None:
         self.cfg = cfg
         self.device = resolve_device(cfg.device)
+        self.cache = cache
+        self.n_read = 0
         self._tok = None
         self._model = None
+
+    # ------------------------------------------------------------ memoisation
+    def _cache_key(
+        self, question: str, context: AssembledContext, focus: str
+    ) -> str | None:
+        """Key covering every input the reader output is a function of.
+
+        Scores are part of the key because they drive the passage-selection
+        prior, so two contexts with the same passages in the same order but
+        different scores can legitimately yield different answers. Scores are
+        rounded to 6 dp so float noise cannot cause a spurious miss.
+        """
+        if self.cache is None or not self.cache.enabled:
+            return None
+        cfg = self.cfg
+        body = "|".join(
+            f"{p.passage_id}:{s:.6f}"
+            for p, s in zip(context.passages, context.scores)
+        )
+        return self.cache.key(
+            cfg.model,
+            cfg.mode,
+            str(cfg.max_length),
+            str(cfg.stride),
+            str(cfg.max_answer_words),
+            str(cfg.passage_selection_weight),
+            str(cfg.abstain_threshold),
+            focus,
+            question,
+            body,
+        )
+
+    def _from_cache(self, payload: dict, context: AssembledContext) -> Answer:
+        claims = [
+            Claim(
+                text=c["text"],
+                anchor_ids=list(c.get("anchor_ids") or []),
+                support_score=float(c.get("support_score", 0.0)),
+            )
+            for c in payload.get("claims", [])
+        ]
+        return Answer(
+            answer=payload.get("answer", ""),
+            claims=claims,
+            abstained=bool(payload.get("abstained", False)),
+            context=context,
+            raw_generation=payload.get("raw_generation", ""),
+            meta={**payload.get("meta", {}), "cached": True},
+        )
+
+    @staticmethod
+    def _to_cache(ans: Answer) -> dict:
+        return {
+            "answer": ans.answer,
+            "abstained": ans.abstained,
+            "raw_generation": ans.raw_generation,
+            "claims": [
+                {
+                    "text": c.text,
+                    "anchor_ids": list(c.anchor_ids),
+                    "support_score": c.support_score,
+                }
+                for c in ans.claims
+            ],
+            "meta": {k: v for k, v in ans.meta.items() if k != "cached"},
+        }
 
     def _ensure(self) -> None:
         if self._model is not None:
@@ -365,9 +434,30 @@ class ExtractiveReader:
                 meta={"reason": "empty_context", "reader": self.cfg.model},
             )
 
-        if self.cfg.mode == "concat":
-            return self._read_concat(question, context, focus)
+        key = self._cache_key(question, context, focus)
+        if key is not None:
+            hit = self.cache.get(key)  # type: ignore[union-attr]
+            if hit is not None:
+                return self._from_cache(hit, context)
 
+        self.n_read += 1
+        ans = (
+            self._read_concat(question, context, focus)
+            if self.cfg.mode == "concat"
+            else self._read_per_passage(question, context, focus)
+        )
+        if key is not None:
+            self.cache.put(key, self._to_cache(ans))  # type: ignore[union-attr]
+        return ans
+
+    def _read_per_passage(
+        self, question: str, context: AssembledContext, focus: str
+    ) -> Answer:
+        """Score each passage independently and take the globally best span.
+
+        Retained as an ablation: provenance is trivially exact and there is no
+        position bias, but it cannot compose hops (see `_read_concat`).
+        """
         scored = self._score_passages(question, context.passages)
 
         # Passage-selection term. The span margin is calibrated *within* a

@@ -279,3 +279,37 @@ def test_comparisons_raise_for_unknown_system():
     rs = RunSet("unified", {"ours": _run("ours", ["a"])})
     with pytest.raises(KeyError):
         rs.comparisons("nope", ["ours"])
+
+
+def _run_c(name, commit):
+    return Run(
+        system=name, description="",
+        header={"corpus": {"questions_sha256": "x"},
+                "reader": {"model": "m"},
+                "environment": {"git_commit": commit}},
+        records=[{"qid": "a", "hop_type": "2hop", "n_hops": 2,
+                  "context_ms": 1.0, "trace": {"n_queries": 1},
+                  "metrics": {"ctx_all_docs": 1.0}}],
+    )
+
+
+def test_runset_rejects_runs_from_different_commits():
+    """Runs built by different code are not comparable.
+
+    This guard exists because the mistake actually happened: baselines were run
+    before a reader fix and would have been tabulated against a system run
+    after it.
+    """
+    with pytest.raises(ValueError, match="different code versions"):
+        RunSet("unified", {"a": _run_c("a", "c1"), "b": _run_c("b", "c2")})
+
+
+def test_runset_accepts_one_commit_and_honours_the_override():
+    RunSet("unified", {"a": _run_c("a", "c1"), "b": _run_c("b", "c1")})
+    RunSet("unified", {"a": _run_c("a", "c1"), "b": _run_c("b", "c2")},
+           allow_mixed_commits=True)
+
+
+def test_unknown_commit_does_not_trip_the_guard():
+    """A run from a non-git checkout records 'unknown'; that must not block."""
+    RunSet("unified", {"a": _run_c("a", "unknown"), "b": _run_c("b", "c1")})

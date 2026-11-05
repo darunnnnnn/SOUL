@@ -32,19 +32,27 @@ log "pool setting (comparability, n=300)"
 python -u -m ctxlayer.cli eval --setting pool --limit 300 \
   || echo "FAILED: pool"
 
-# 4. Honest latency. Must be last: it wants an idle machine, and it bypasses
-#    the caches that every step above relies on.
+# 4. Re-measure the assembly A/B. The table quoted in DESIGN.md was measured
+#    BEFORE the three retriever fixes (self-parenting chains, empty-round
+#    abort, stopword-blind anchor filter), so those figures no longer describe
+#    the current system. check_doc_claims.py compares DESIGN.md against this
+#    artefact, so a stale table fails the build rather than shipping quietly.
+log "assembly A/B re-measurement"
+python -u scripts/ab_assembly.py 150 unified,pool || echo "FAILED: ab_assembly"
+
+# 5. Honest latency. Near-last: it wants an idle machine, and it bypasses the
+#    caches that every step above relies on.
 log "cold-cache latency"
 python -u scripts/bench_latency.py 25 unified || echo "FAILED: latency"
 
-# 5. Rebuild every published number from the raw outputs, and regenerate
+# 6. Rebuild every published number from the raw outputs, and regenerate
 #    EVAL.md. Offline; reads nothing but eval/raw_outputs/.
 log "report + EVAL.md"
 python -u -m ctxlayer.cli report --setting unified --write-md || echo "FAILED: report"
 python -u -m ctxlayer.cli report --setting unified --holdout  || echo "FAILED: holdout"
 python -u -m ctxlayer.cli report --setting pool                || echo "FAILED: pool report"
 
-# 6. Fail loudly if any hand-written figure disagrees with its artefact.
+# 7. Fail loudly if any hand-written figure disagrees with its artefact.
 log "documentation claims vs artefacts"
 python -u scripts/check_doc_claims.py || echo "FAILED: doc claims"
 

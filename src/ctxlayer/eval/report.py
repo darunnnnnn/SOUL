@@ -79,9 +79,15 @@ class Run:
 class RunSet:
     """All systems for one retrieval setting, aligned on question id."""
 
-    def __init__(self, setting: str, runs: dict[str, Run]) -> None:
+    def __init__(
+        self,
+        setting: str,
+        runs: dict[str, Run],
+        allow_mixed_commits: bool = False,
+    ) -> None:
         self.setting = setting
         self.runs = runs
+        self.allow_mixed_commits = allow_mixed_commits
         self._validate()
 
     def _validate(self) -> None:
@@ -108,6 +114,27 @@ class RunSet:
         distinct = {v for v in fps.values() if v}
         if len(distinct) > 1:
             raise ValueError(f"runs disagree on corpus fingerprint: {fps}")
+        # Code version. Runs produced by different commits are not comparable:
+        # a change to the reader or the assembler silently shifts one row of
+        # the table relative to the others. This caught exactly that mistake
+        # once -- baselines run before a reader fix, compared against a system
+        # run after it -- so it is an error, not a warning.
+        commits = {
+            n: (r.header.get("environment") or {}).get("git_commit")
+            for n, r in self.runs.items()
+        }
+        distinct_commits = {c for c in commits.values() if c and c != "unknown"}
+        if len(distinct_commits) > 1 and not self.allow_mixed_commits:
+            lines = "\n".join(
+                f"    {n}: {c}" for n, c in sorted(commits.items())
+            )
+            raise ValueError(
+                "runs were produced by different code versions, so they are "
+                "not comparable:\n" + lines + "\n"
+                "Re-run every system on one commit (`ctxlayer eval`), or pass "
+                "allow_mixed_commits=True if the difference is known to be "
+                "irrelevant."
+            )
         readers = {
             n: (r.header.get("reader") or {}).get("model")
             for n, r in self.runs.items()

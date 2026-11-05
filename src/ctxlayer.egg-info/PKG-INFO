@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: ctxlayer
+Version: 0.1.0
+Summary: A knowledge base as a context layer: multi-document retrieval, assembly and cited synthesis, with a reproducible multi-hop evaluation.
+Requires-Python: >=3.10
+Requires-Dist: torch>=2.0
+Requires-Dist: transformers<5,>=4.44
+Requires-Dist: numpy>=1.24
+Provides-Extra: llm
+Requires-Dist: anthropic>=0.40; extra == "llm"
+Requires-Dist: openai>=1.40; extra == "llm"
+Provides-Extra: dev
+Requires-Dist: pytest>=7.4; extra == "dev"

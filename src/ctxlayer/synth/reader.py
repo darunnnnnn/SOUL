@@ -181,6 +181,174 @@ class ExtractiveReader:
                 results.append((best[0], cs, ce, null))
         return results
 
+    # ------------------------------------------------------- concat reading
+    def _read_concat(
+        self, question: str, context: AssembledContext, focus: str
+    ) -> Answer:
+        """Read the whole context as one windowed sequence.
+
+        Why this mode exists
+        --------------------
+        Per-passage reading cannot *compose* hops. For "Who is the spouse of
+        the Green performer?", the answer-bearing paragraph (*Miquette
+        Giraudy*) says only "her partner Steve Hillage" -- it never mentions
+        *Green*. A reader shown that paragraph alone, with the original
+        multi-hop question, has no way to connect them. Measured on the oracle
+        condition (gold paragraphs only), per-passage reading reached just
+        22.5 EM, so the reader -- not the context layer -- was the binding
+        constraint and answer metrics could not discriminate between systems.
+
+        Concatenating lets the reader see the hop-1 and hop-2 evidence in one
+        window, which is what the composition requires.
+
+        Provenance is preserved exactly: we build the concatenated string
+        ourselves and keep a (start, end) -> passage map, so a span's character
+        offset resolves back to a specific passage and then, via
+        ``pick_anchor_for_span``, to a specific sentence. Offsets are
+        translated into passage-local coordinates before the anchor lookup, so
+        a citation still points at real source text.
+        """
+        self._ensure()
+        torch = self._torch
+        tok = self._tok
+
+        # Build the concatenated context and the offset -> passage map.
+        parts: list[str] = []
+        spans: list[tuple[int, int, int]] = []  # (global_start, global_end, idx)
+        cursor = 0
+        sep = "\n\n"
+        for i, p in enumerate(context.passages):
+            head = f"{p.doc_title}. "
+            body_start = cursor + len(head)
+            text = head + p.text
+            parts.append(text)
+            spans.append((body_start, body_start + len(p.text), i))
+            cursor += len(text) + len(sep)
+        blob = sep.join(parts)
+
+        enc = tok(  # type: ignore[misc]
+            question,
+            blob,
+            truncation="only_second",
+            max_length=self.cfg.max_length,
+            stride=self.cfg.stride,
+            return_overflowing_tokens=True,
+            return_offsets_mapping=True,
+            padding=True,
+            return_tensors="pt",
+        )
+        offsets = enc.pop("offset_mapping")
+        enc.pop("overflow_to_sample_mapping", None)
+        n_win = offsets.shape[0]
+        seq_ids = [enc.sequence_ids(j) for j in range(n_win)]
+        enc = {k: v.to(self.device) for k, v in enc.items()}
+        with torch.inference_mode():
+            out = self._model(**enc)  # type: ignore[misc]
+        starts = out.start_logits.float().cpu().numpy()
+        ends = out.end_logits.float().cpu().numpy()
+
+        # Retrieval prior over passages, as in per-passage mode. Measured
+        # necessity: plain concatenation beat per-passage reading by +8.4 EM on
+        # the oracle condition (clean context) but LOST 5.0 EM on retrieved
+        # context -- because concatenating gains hop composition yet discards
+        # the retriever's opinion, letting the reader take a confident-looking
+        # span out of a distractor. Scoring spans with both terms keeps the
+        # composition and restores the prior.
+        rel = np.asarray(context.scores, dtype=np.float64)
+        if rel.size == len(context.passages) and rel.size > 1:
+            lo, hi = float(rel.min()), float(rel.max())
+            rel_norm = (rel - lo) / (hi - lo) if hi - lo > 1e-9 else np.ones_like(rel)
+        else:
+            rel_norm = np.ones(max(1, len(context.passages)), dtype=np.float64)
+
+        def _owner(global_start: int) -> int | None:
+            for s, e, idx in spans:
+                if s <= global_start < e:
+                    return idx
+            return None
+
+        best = (-1e18, -1, -1)  # (score, global_char_start, global_char_end)
+        for j in range(n_win):
+            sids = seq_ids[j]
+            valid = np.array([1.0 if s == 1 else 0.0 for s in sids], dtype=np.float32)
+            s_log = np.where(valid > 0, starts[j], -1e9)
+            e_log = np.where(valid > 0, ends[j], -1e9)
+            null = float(starts[j][0] + ends[j][0])
+            off = offsets[j].numpy()
+            s_idx = np.argsort(-s_log)[:20]
+            e_idx = np.argsort(-e_log)[:20]
+            for si in s_idx:
+                for ei in e_idx:
+                    if ei < si or ei - si + 1 > self.cfg.max_answer_words * 4:
+                        continue
+                    margin = float(s_log[si] + e_log[ei]) - null
+                    # NB: no early `continue` against best[0] here -- best[0]
+                    # includes the passage prior, so a lower raw margin can
+                    # still win once the prior is added.
+                    cs, ce = int(off[si][0]), int(off[ei][1])
+                    if ce <= cs:
+                        continue
+                    text = blob[cs:ce]
+                    if not text.strip():
+                        continue
+                    m = margin
+                    if focus in {"date", "number"} and not (
+                        _DATE_RE.search(text)
+                        if focus == "date"
+                        else _NUM_RE.search(text)
+                    ):
+                        m *= _TYPE_PENALTY
+                    own = _owner(cs)
+                    if own is not None:
+                        m += self.cfg.passage_selection_weight * float(rel_norm[own])
+                    if m > best[0]:
+                        best = (m, cs, ce)
+
+        if best[1] < 0:
+            return Answer(answer="", abstained=True, context=context,
+                          meta={"reason": "no_span", "reader": self.cfg.model,
+                                "mode": "concat"})
+
+        margin, gs, ge = best
+        answer_text = blob[gs:ge].strip(" .,;:’'\"\n")
+
+        # Map the global span back to a passage, then to a sentence anchor.
+        owner = next(
+            (idx for (s, e, idx) in spans if s <= gs < e),
+            None,
+        )
+        anchor = None
+        passage = None
+        if owner is not None:
+            passage = context.passages[owner]
+            s, e, _ = spans[owner]
+            local_start = max(0, gs - s)
+            local_end = min(len(passage.text), max(local_start + 1, ge - s))
+            anchor = pick_anchor_for_span(passage, local_start, local_end)
+
+        claim = Claim(
+            text=answer_text,
+            anchor_ids=[anchor.anchor_id] if anchor else [],
+            support_score=float(margin),
+        )
+        return Answer(
+            answer=answer_text,
+            claims=[claim],
+            abstained=False,
+            context=context,
+            raw_generation=answer_text,
+            meta={
+                "reader": self.cfg.model,
+                "mode": "concat",
+                "margin": float(margin),
+                "n_windows": int(n_win),
+                "passage_id": passage.passage_id if passage else None,
+                "doc_title": passage.doc_title if passage else None,
+                "focus": focus,
+                "confidence": 1.0 / (1.0 + math.exp(-margin / 4.0)),
+            },
+        )
+
     # ---------------------------------------------------------------- answer
     def read(
         self,
@@ -195,6 +363,9 @@ class ExtractiveReader:
                 context=context,
                 meta={"reason": "empty_context", "reader": self.cfg.model},
             )
+
+        if self.cfg.mode == "concat":
+            return self._read_concat(question, context, focus)
 
         scored = self._score_passages(question, context.passages)
 

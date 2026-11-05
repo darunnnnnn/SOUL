@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ctxlayer"
+version = "0.1.0"
+description = "A knowledge base as a context layer: multi-document retrieval, assembly and cited synthesis, with a reproducible multi-hop evaluation."
+requires-python = ">=3.10"
+# Deliberately short. Everything else is standard library:
+#   - BM25F is implemented here (fielded scoring + NumPy CSR), not rank_bm25
+#   - vector search is an exact NumPy matmul, not FAISS/HNSW
+#   - the CLI is argparse
+#   - config parsing is a tiny YAML subset, not PyYAML
+# Fewer pinned dependencies means fewer ways for a reproduction to fail.
+dependencies = [
+    "torch>=2.0",
+    "transformers>=4.44,<5",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+# Only needed for the optional LLM synthesis path (reader.kind = "llm").
+llm = ["anthropic>=0.40", "openai>=1.40"]
+dev = ["pytest>=7.4"]
+
+[project.scripts]
+ctxlayer = "ctxlayer.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

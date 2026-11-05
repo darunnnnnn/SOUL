@@ -1,0 +1,2 @@
+[console_scripts]
+ctxlayer = ctxlayer.cli:main

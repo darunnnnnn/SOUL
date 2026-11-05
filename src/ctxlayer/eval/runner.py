@@ -58,8 +58,27 @@ from .metrics import (
 __all__ = ["run_system", "raw_output_path", "environment_fingerprint"]
 
 
+_ENV_FINGERPRINT: dict[str, Any] | None = None
+
+
 def environment_fingerprint() -> dict[str, Any]:
-    """Everything needed to explain a numerical difference between machines."""
+    """Everything needed to explain a numerical difference between machines.
+
+    Computed **once per process** and cached. The code version that produced a
+    run is the one loaded at import time, not whatever HEAD happens to be when
+    a particular system starts -- so re-reading git per system would stamp
+    different commits onto systems that ran identical code, and the
+    mixed-commit guard in report.py would then reject a perfectly valid run.
+    (Which it duly did, when a documentation commit landed mid-evaluation.)
+    """
+    global _ENV_FINGERPRINT
+    if _ENV_FINGERPRINT is not None:
+        return dict(_ENV_FINGERPRINT)
+    _ENV_FINGERPRINT = _compute_environment_fingerprint()
+    return dict(_ENV_FINGERPRINT)
+
+
+def _compute_environment_fingerprint() -> dict[str, Any]:
     try:
         import numpy
         import torch

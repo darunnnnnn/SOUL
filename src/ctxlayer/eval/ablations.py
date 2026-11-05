@@ -175,7 +175,19 @@ def run_ablations(
     pristine_bm25 = kb.bm25
 
     print(f"\nrunning {len(names)} ablations on {len(questions)} questions "
-          f"({ecfg.setting} setting)\n")
+          f"({ecfg.setting} setting, output label {ecfg.label!r})\n")
+
+    # Reference runs *inside the ablation directory*, on exactly these
+    # questions. Without them an ablation table has nothing valid to be
+    # compared against: report.py requires every run in a directory to cover an
+    # identical question set, so the main directory's 500-question `ours` can
+    # not serve as the reference for a 200-question ablation sweep.
+    if reference:
+        for ref in ("ours", "hybrid_rerank"):
+            kb.bm25 = pristine_bm25
+            run_system(kb, PRESETS[ref], questions, ecfg, paths, reader=reader,
+                       setting=ecfg.setting)
+
     for name in names:
         cfg = build_ablation_config(name)
         _, overrides = ABLATIONS[name]
@@ -190,5 +202,5 @@ def run_ablations(
         run_system(kb, cfg, questions, ecfg, paths, reader=reader,
                    setting=ecfg.setting)
     kb.bm25 = pristine_bm25
-    print("\nablation raw outputs ->", paths.resolve("raw_outputs_dir") / ecfg.setting)
+    print("\nablation raw outputs ->", paths.resolve("raw_outputs_dir") / ecfg.label)
     return 0

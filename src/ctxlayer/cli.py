@@ -316,7 +316,7 @@ def cmd_report(args: argparse.Namespace) -> int:
     if rep["comparisons"]:
         print("\nSIGNIFICANCE vs baselines (paired permutation, Holm-adjusted)\n")
         print(rep["comparison_table"])
-    out = paths.resolve("results_dir") / f"report_{args.setting}.json"
+    out = paths.resolve("results_dir") / f"report_{ecfg.label}.json"
     print(f"\nreport -> {out}")
     if args.write_md:
         p = write_eval_md(paths, ecfg)

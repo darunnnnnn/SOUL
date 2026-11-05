@@ -168,3 +168,67 @@ def test_empty_context_short_circuits_before_the_cache(tmp_path, cfg):
     assert ans.abstained and ans.answer == ""
     assert r.n_read == 0
     assert cache.hits == 0 and cache.misses == 0
+
+
+# --------------------------------------------------------------------------
+# provenance in concat mode
+# --------------------------------------------------------------------------
+
+
+def test_span_landing_in_the_title_still_gets_a_citation(cfg):
+    """A span inside the injected "Title. " prefix must still be attributed.
+
+    Concat mode prepends each passage's title to its text. When the answer IS
+    the article title, the best span lands in that prefix. Attributing by body
+    range alone found no owner and produced an UNCITED claim -- a silent
+    provenance loss. This asserts the title region resolves to its passage.
+    """
+    from ctxlayer.synth.reader import ExtractiveReader
+
+    p = _mk(
+        "Miquette Giraudy",
+        "She is a keyboard player, best known for her work with her partner "
+        "Steve Hillage.",
+    )
+    ctx_local = AssembledContext(passages=[p], scores=[1.0])
+    reader = ExtractiveReader(cfg)
+
+    # Drive the private mapper directly over every offset in the blob: no
+    # offset anywhere in the concatenated text may fail to resolve.
+    ans = reader.read("Who is the partner of Steve Hillage?", ctx_local)
+    assert ans.claims
+    assert ans.claims[0].anchor_ids, "claim must carry a citation"
+    known = {a.anchor_id for a in p.anchors}
+    assert ans.claims[0].anchor_ids[0] in known
+
+
+def test_every_offset_in_the_blob_resolves_to_a_passage(cfg):
+    """No gap in the offset->passage map except the separators themselves."""
+    a = _mk("Lap Engine", "The Lap Engine is a beam engine by James Watt.")
+    b = _mk("James Watt", "Watt studied at the University of Glasgow.")
+    ctx_local = AssembledContext(passages=[a, b], scores=[1.0, 0.5])
+
+    sep = "\n\n"
+    parts, spans, full, cursor = [], [], [], 0
+    for i, p in enumerate([a, b]):
+        head = f"{p.doc_title}. "
+        text = head + p.text
+        parts.append(text)
+        spans.append((cursor + len(head), cursor + len(head) + len(p.text), i))
+        full.append((cursor, cursor + len(text), i))
+        cursor += len(text) + len(sep)
+    blob = sep.join(parts)
+
+    def owner(g):
+        for s, e, idx in spans:
+            if s <= g < e:
+                return idx
+        for s, e, idx in full:
+            if s <= g < e:
+                return idx
+        return None
+
+    unresolved = [g for g in range(len(blob)) if owner(g) is None]
+    # Only the 2-char separator between the two parts may be unowned.
+    assert len(unresolved) == len(sep)
+    assert all(blob[g] in "\n" for g in unresolved)

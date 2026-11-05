@@ -294,7 +294,7 @@ def cmd_eval(args: argparse.Namespace) -> int:
             return 1
         cfg = PRESETS[name]
         run_system(kb, cfg, questions, ecfg, paths, reader=reader, setting=args.setting)
-    print("\nraw outputs ->", paths.resolve("raw_outputs_dir") / args.setting)
+    print("\nraw outputs ->", paths.resolve("raw_outputs_dir") / ecfg.label)
     return 0
 
 

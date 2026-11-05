@@ -284,7 +284,13 @@ class ExtractiveReader:
 
         # Build the concatenated context and the offset -> passage map.
         parts: list[str] = []
-        spans: list[tuple[int, int, int]] = []  # (global_start, global_end, idx)
+        # body spans: (global start of p.text, global end, passage index)
+        spans: list[tuple[int, int, int]] = []
+        # Full spans include the injected "Title. " prefix. Needed because a
+        # span can legitimately land in the title -- when the answer IS the
+        # article title -- and attributing by body range alone would then find
+        # no owner and emit an UNCITED claim, silently losing provenance.
+        full_spans: list[tuple[int, int, int]] = []
         cursor = 0
         sep = "\n\n"
         for i, p in enumerate(context.passages):
@@ -293,6 +299,7 @@ class ExtractiveReader:
             text = head + p.text
             parts.append(text)
             spans.append((body_start, body_start + len(p.text), i))
+            full_spans.append((cursor, cursor + len(text), i))
             cursor += len(text) + len(sep)
         blob = sep.join(parts)
 
@@ -332,7 +339,16 @@ class ExtractiveReader:
             rel_norm = np.ones(max(1, len(context.passages)), dtype=np.float64)
 
         def _owner(global_start: int) -> int | None:
+            """Passage a global offset belongs to.
+
+            Body ranges first, then the full range (title prefix included), so
+            a span landing in the injected title still resolves to its passage
+            instead of producing an uncited claim.
+            """
             for s, e, idx in spans:
+                if s <= global_start < e:
+                    return idx
+            for s, e, idx in full_spans:
                 if s <= global_start < e:
                     return idx
             return None
@@ -383,16 +399,16 @@ class ExtractiveReader:
         answer_text = blob[gs:ge].strip(" .,;:’'\"\n")
 
         # Map the global span back to a passage, then to a sentence anchor.
-        owner = next(
-            (idx for (s, e, idx) in spans if s <= gs < e),
-            None,
-        )
+        owner = _owner(gs)
         anchor = None
         passage = None
         if owner is not None:
             passage = context.passages[owner]
             s, e, _ = spans[owner]
-            local_start = max(0, gs - s)
+            # Clamp into passage-local body coordinates. A span that began in
+            # the title clamps to offset 0 and cites the passage's first
+            # sentence, which is where a title-matching fact is stated.
+            local_start = min(max(0, gs - s), max(0, len(passage.text) - 1))
             local_end = min(len(passage.text), max(local_start + 1, ge - s))
             anchor = pick_anchor_for_span(passage, local_start, local_end)
 

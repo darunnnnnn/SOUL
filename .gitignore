@@ -1,0 +1,11 @@
+data/raw/*.jsonl
+data/index/
+data/cache/
+data/processed/
+__pycache__/
+*.pyc
+.venv/
+.env
+*.npy
+*.npz
+.qodo/

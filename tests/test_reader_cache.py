@@ -232,3 +232,55 @@ def test_every_offset_in_the_blob_resolves_to_a_passage(cfg):
     # Only the 2-char separator between the two parts may be unowned.
     assert len(unresolved) == len(sep)
     assert all(blob[g] in "\n" for g in unresolved)
+
+
+# --------------------------------------------------------------------------
+# dense query-embedding memoisation
+# --------------------------------------------------------------------------
+
+
+def test_query_embedding_cache_is_result_neutral():
+    """Exact-string memoisation of query vectors must not change anything."""
+    import numpy as np
+
+    from ctxlayer.config import DenseConfig
+    from ctxlayer.index.dense import DenseIndex
+
+    d = DenseIndex(DenseConfig())
+    qs = ["Who is the spouse of the Green performer?", "Steve Hillage spouse"]
+    first = d.encode_queries(qs)
+    second = d.encode_queries(qs)
+    assert np.array_equal(first, second)
+
+    # A mixed hit/miss batch must return vectors in the REQUESTED order, not
+    # in cache or encode order -- getting this wrong silently pairs queries
+    # with the wrong embeddings.
+    mixed = d.encode_queries([qs[1], "an unseen third query", qs[0]])
+    assert np.array_equal(mixed[0], first[1])
+    assert np.array_equal(mixed[2], first[0])
+    assert len(d._qcache) == 3
+
+
+def test_query_embedding_cache_is_bounded_and_survives_eviction():
+    """A request larger than the cache bound must still return every vector.
+
+    Reading the result straight out of the cache after eviction raised
+    KeyError: entries inserted for the current request could be evicted before
+    being read. The result is now assembled independently of eviction.
+    """
+    import numpy as np
+
+    from ctxlayer.config import DenseConfig
+    from ctxlayer.index.dense import DenseIndex
+
+    d = DenseIndex(DenseConfig())
+    d._QCACHE_MAX = 5
+    qs = [f"query number {i}" for i in range(12)]
+    out = d.encode_queries(qs)          # request is larger than the bound
+    assert out.shape[0] == 12
+    assert not np.isnan(out).any()
+    # Keys of the in-flight request are protected, so the bound may be
+    # exceeded only by that request's own size -- never unbounded growth.
+    assert len(d._qcache) <= max(5, len(qs))
+    d.encode_queries(["something else entirely"])
+    assert len(d._qcache) <= max(5, 1) + 1

@@ -126,12 +126,16 @@ class _Encoder:
 
 
 class DenseIndex:
+    # Upper bound on the in-memory query-embedding cache (~1.5 MB at 384 dims).
+    _QCACHE_MAX = 20000
+
     def __init__(self, cfg: DenseConfig) -> None:
         self.cfg = cfg
         self.passage_ids: list[str] = []
         self._pid_to_row: dict[str, int] = {}
         self.emb: np.ndarray = np.zeros((0, 0), dtype=np.float32)
         self.device = resolve_device(cfg.device)
+        self._qcache: dict[str, np.ndarray] = {}
 
     # ---------------------------------------------------------------- build
     def build(
@@ -186,13 +190,52 @@ class DenseIndex:
 
     # --------------------------------------------------------------- search
     def encode_queries(self, queries: Sequence[str]) -> np.ndarray:
+        """Encode queries, memoising by exact prefixed string.
+
+        The iterative retriever issues ~13 queries per question, and bridge
+        queries recur heavily across systems, ablations and repeated runs
+        ("<entity> <relation terms>" is a function of the question and the
+        entity, both of which repeat). Encoding is ~10 ms, so this is ~65 s per
+        500-question system and ~20 min across an ablation sweep, spent
+        recomputing identical vectors.
+
+        Exact-string keyed, so it cannot change a result. Bounded to keep
+        memory flat on long runs; eviction is simple insertion-order trimming,
+        which is adequate because queries within a run cluster in time.
+        """
         enc = _Encoder.get(self.cfg.model, self.device)
-        return enc.encode(
-            [self.cfg.query_prefix + q for q in queries],
-            self.cfg.max_length,
-            self.cfg.batch_size,
-            self.cfg.normalize,
-        )
+        keys = [self.cfg.query_prefix + q for q in queries]
+        unique = list(dict.fromkeys(keys))
+        resolved: dict[str, np.ndarray] = {
+            k: self._qcache[k] for k in unique if k in self._qcache
+        }
+        missing = [k for k in unique if k not in resolved]
+        if missing:
+            vecs = enc.encode(
+                missing,
+                self.cfg.max_length,
+                self.cfg.batch_size,
+                self.cfg.normalize,
+            )
+            for k, v in zip(missing, vecs):
+                resolved[k] = v
+                self._qcache[k] = v
+
+        # Build the result from `resolved`, never from the cache: eviction
+        # below must not be able to remove an entry this call still needs.
+        # (Reading straight from the cache raised KeyError once the request
+        # itself was larger than the cache bound.)
+        out = np.stack([resolved[k] for k in keys])
+
+        if len(self._qcache) > self._QCACHE_MAX:
+            # Evict oldest-first, but never the keys just requested.
+            protected = set(unique)
+            for k in list(self._qcache):
+                if len(self._qcache) <= self._QCACHE_MAX:
+                    break
+                if k not in protected:
+                    del self._qcache[k]
+        return out
 
     def score_all(self, query: str) -> np.ndarray:
         if self.emb.size == 0:

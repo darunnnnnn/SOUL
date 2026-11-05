@@ -369,7 +369,10 @@ def cmd_reproduce(args: argparse.Namespace) -> int:
 
     if not args.skip_ablations:
         print("\n[5/6] ablations")
-        run_ablations(paths, ecfg, limit=args.limit, kb=kb, reader=reader)
+        # Same output directory and same questions as the runs above, so the
+        # `ours`/`hybrid_rerank` references already exist -- do not re-run them.
+        run_ablations(paths, ecfg, limit=args.limit, kb=kb, reader=reader,
+                      reference=False)
     else:
         print("\n[5/6] ablations skipped (--skip-ablations)")
 

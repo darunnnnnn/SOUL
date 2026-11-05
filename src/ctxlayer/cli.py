@@ -325,7 +325,10 @@ def cmd_report(args: argparse.Namespace) -> int:
                       out_label=args.out_label or "")
     holdout = ecfg.tuning_split if args.holdout else 0
     rep = build_report(paths, ecfg.label, ecfg=ecfg, holdout_skip=holdout)
-    print(f"\n=== {args.setting.upper()} SETTING | n={rep['n_questions']} ===\n")
+    tag = (
+        f" | held-out: first {holdout} tuning questions dropped" if holdout else ""
+    )
+    print(f"\n=== {ecfg.label.upper()} | n={rep['n_questions']}{tag} ===\n")
     print(rep["headline_table"])
     if rep["comparisons"]:
         print("\nSIGNIFICANCE vs baselines (paired permutation, Holm-adjusted)\n")

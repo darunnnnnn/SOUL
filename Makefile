@@ -11,7 +11,8 @@ LIMIT ?=
 
 help:
 	@echo "make install      - editable install + dependencies"
-	@echo "make test         - run the test suite (no network, ~8s)"
+	@echo "make test         - run the test suite (no network)"
+	@echo "make check-docs   - verify doc figures against the artefacts"
 	@echo "make reproduce    - THE one command: data -> indexes -> runs -> EVAL.md"
 	@echo "make eval         - run the systems (SETTING=unified LIMIT=100)"
 	@echo "make ablate       - run the ablation suite"
@@ -24,6 +25,10 @@ install:
 
 test:
 	$(PY) -m pytest -q
+
+# Fails if a document quotes a figure its artefact does not support.
+check-docs:
+	$(PY) scripts/check_doc_claims.py
 
 # Hard Requirement #4: one command reruns the evaluation and rebuilds the
 # results from raw outputs.

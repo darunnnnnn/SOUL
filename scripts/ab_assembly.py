@@ -66,6 +66,8 @@ COLS = [
 
 
 def main() -> int:
+    import json
+
     paths = PathsConfig()
     res = load_processed(paths)
     kb = KnowledgeBase.load(res, PRESETS["ours"], paths)
@@ -76,6 +78,7 @@ def main() -> int:
     print(f"\ncorpus {kb.n_passages} passages | n={len(qs)} questions "
           f"| retrieval-only (no reader)\n")
 
+    all_results: dict[str, dict] = {}
     for setting in SETTINGS:
         print("=" * 104)
         print(f"SETTING: {setting}")
@@ -107,6 +110,18 @@ def main() -> int:
             )
             print(f"{name:24s}{cells}{dt/len(qs):9.2f}")
         print()
+        all_results[setting] = rows
+
+    # Persist, so the table quoted in DESIGN.md can be checked against the
+    # measurement that produced it rather than trusted
+    # (scripts/check_doc_claims.py).
+    out = paths.resolve("results_dir") / "ab_assembly.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(
+        json.dumps({"n": len(qs), "settings": all_results}, indent=2),
+        encoding="utf-8",
+    )
+    print(f"wrote {out}")
     return 0
 
 

@@ -84,10 +84,37 @@ class RunSet:
         setting: str,
         runs: dict[str, Run],
         allow_mixed_commits: bool = False,
+        holdout_skip: int = 0,
     ) -> None:
+        """``holdout_skip`` drops the first N questions (by sorted qid).
+
+        Hyperparameters were chosen with ``scripts/ab_assembly.py`` on
+        ``questions[:150]``, which is the first 150 qids in sorted order. Those
+        questions are therefore *development* data, and reporting a headline on
+        them is mild overfitting. Dropping them yields a split that was never
+        used for any tuning decision, at no extra compute: the raw outputs
+        already cover every question, so the held-out table is a filter over
+        committed artefacts rather than another run.
+
+        EVAL.md reports both, labelled, so a reader can see the size of the
+        effect rather than take our word that it is small.
+        """
         self.setting = setting
-        self.runs = runs
         self.allow_mixed_commits = allow_mixed_commits
+        self.holdout_skip = holdout_skip
+        if holdout_skip > 0:
+            skipped = sorted({q for r in runs.values() for q in r.qids})[:holdout_skip]
+            drop = set(skipped)
+            runs = {
+                n: Run(
+                    system=r.system,
+                    description=r.description,
+                    header=r.header,
+                    records=[x for x in r.records if x["qid"] not in drop],
+                )
+                for n, r in runs.items()
+            }
+        self.runs = runs
         self._validate()
 
     def _validate(self) -> None:
@@ -228,7 +255,12 @@ class RunSet:
 # --------------------------------------------------------------------------
 
 
-def load_runs(paths: PathsConfig, setting: str, systems: Iterable[str] | None = None) -> RunSet:
+def load_runs(
+    paths: PathsConfig,
+    setting: str,
+    systems: Iterable[str] | None = None,
+    holdout_skip: int = 0,
+) -> RunSet:
     base = paths.resolve("raw_outputs_dir") / setting
     if not base.exists():
         raise FileNotFoundError(
@@ -255,7 +287,7 @@ def load_runs(paths: PathsConfig, setting: str, systems: Iterable[str] | None = 
         if not records:
             continue
         runs[name] = Run(name, header.get("description", ""), header, records)
-    return RunSet(setting, runs)
+    return RunSet(setting, runs, holdout_skip=holdout_skip)
 
 
 # --------------------------------------------------------------------------
@@ -324,10 +356,11 @@ def build_report(
     ),
     order: Sequence[str] | None = None,
     ecfg: EvalConfig | None = None,
+    holdout_skip: int = 0,
 ) -> dict[str, Any]:
     """Recompute every aggregate for one setting and persist it."""
     ecfg = ecfg or EvalConfig()
-    rs = load_runs(paths, setting)
+    rs = load_runs(paths, setting, holdout_skip=holdout_skip)
     default_order = [
         "closed_book", "bm25", "dense", "hybrid", "hybrid_rerank", "ours", "oracle",
     ]
@@ -342,6 +375,7 @@ def build_report(
     )
     report = {
         "setting": setting,
+        "holdout_skip": holdout_skip,
         "n_questions": rs.n,
         "systems": list(rs.runs),
         "order": order,
@@ -356,7 +390,8 @@ def build_report(
     }
     out_dir = paths.resolve("results_dir")
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / f"report_{setting}.json").write_text(
+    suffix = f"_holdout{holdout_skip}" if holdout_skip else ""
+    (out_dir / f"report_{setting}{suffix}.json").write_text(
         json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
     )
     return report

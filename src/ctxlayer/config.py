@@ -424,6 +424,10 @@ class EvalConfig(_Base):
     out_label: str = ""
     # k values at which retrieval metrics are reported.
     k_values: tuple[int, ...] = (2, 5, 10, 20)
+    # Questions used for hyperparameter selection (scripts/ab_assembly.py ran
+    # on questions[:150]). The report can drop them to produce a split that was
+    # never used for any tuning decision -- see RunSet.holdout_skip.
+    tuning_split: int = 150
     bootstrap_samples: int = 2000
     permutation_samples: int = 10000
     seed: int = 20251105

@@ -313,3 +313,55 @@ def test_runset_accepts_one_commit_and_honours_the_override():
 def test_unknown_commit_does_not_trip_the_guard():
     """A run from a non-git checkout records 'unknown'; that must not block."""
     RunSet("unified", {"a": _run_c("a", "unknown"), "b": _run_c("b", "c1")})
+
+
+def _run_q(name, qids, em_by_qid):
+    return Run(
+        system=name, description="",
+        header={"corpus": {"questions_sha256": "x"}, "reader": {"model": "m"},
+                "environment": {"git_commit": "c1"}},
+        records=[{"qid": q, "hop_type": "2hop", "n_hops": 2, "context_ms": 1.0,
+                  "trace": {"n_queries": 1},
+                  "metrics": {"ctx_all_docs": 1.0, "answer_em": em_by_qid[q]}}
+                 for q in qids],
+    )
+
+
+def test_holdout_drops_the_tuning_questions_consistently():
+    """Hyperparameters were chosen on questions[:150]; the report can drop them.
+
+    The split must be identical across systems, or the paired comparisons it
+    feeds become invalid.
+    """
+    qids = [f"q{i:03d}" for i in range(10)]
+    em_a = {q: 1.0 for q in qids}
+    em_b = {q: (1.0 if i < 3 else 0.0) for i, q in enumerate(qids)}
+    rs = RunSet(
+        "unified",
+        {"ours": _run_q("ours", qids, em_a), "bm25": _run_q("bm25", qids, em_b)},
+        holdout_skip=3,
+    )
+    assert rs.n == 7
+    assert rs.qids == qids[3:]                       # first 3 dropped
+    assert all(len(r.records) == 7 for r in rs.runs.values())
+    # On the held-out part bm25 scores 0 throughout, so the delta is visible
+    # only because the split was applied to BOTH runs identically.
+    assert rs.runs["bm25"].series("answer_em") == [0.0] * 7
+    assert rs.runs["ours"].series("answer_em") == [1.0] * 7
+
+
+def test_holdout_zero_is_a_noop():
+    qids = [f"q{i:03d}" for i in range(5)]
+    em = {q: 1.0 for q in qids}
+    rs = RunSet("unified", {"ours": _run_q("ours", qids, em)}, holdout_skip=0)
+    assert rs.n == 5
+
+
+def test_holdout_is_by_sorted_qid_not_file_order():
+    """Raw outputs are written in question order, but the split must not
+    depend on that -- it is defined on sorted qids."""
+    qids = [f"q{i:03d}" for i in range(6)]
+    em = {q: 1.0 for q in qids}
+    shuffled = [qids[3], qids[0], qids[5], qids[1], qids[4], qids[2]]
+    rs = RunSet("unified", {"ours": _run_q("ours", shuffled, em)}, holdout_skip=2)
+    assert set(rs.qids) == set(qids[2:])

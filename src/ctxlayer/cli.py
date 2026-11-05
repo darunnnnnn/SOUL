@@ -323,7 +323,8 @@ def cmd_report(args: argparse.Namespace) -> int:
     paths = PathsConfig()
     ecfg = EvalConfig(setting=args.setting, seed=args.seed,
                       out_label=args.out_label or "")
-    rep = build_report(paths, ecfg.label, ecfg=ecfg)
+    holdout = ecfg.tuning_split if args.holdout else 0
+    rep = build_report(paths, ecfg.label, ecfg=ecfg, holdout_skip=holdout)
     print(f"\n=== {args.setting.upper()} SETTING | n={rep['n_questions']} ===\n")
     print(rep["headline_table"])
     if rep["comparisons"]:
@@ -461,6 +462,8 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--seed", type=int, default=20251105)
     r.add_argument("--write-md", action="store_true", help="also regenerate EVAL.md")
     r.add_argument("--out-label", default=None, dest="out_label")
+    r.add_argument("--holdout", action="store_true",
+                   help="drop the questions used for hyperparameter tuning")
     r.set_defaults(func=cmd_report)
 
     dg = sub.add_parser("diagnose", help="reproduce the design measurements")

@@ -82,6 +82,22 @@ ABLATIONS: dict[str, tuple[str, dict[str, Any]]] = {
         "constraint that stops one source consuming the whole budget.",
         {"assemble.max_per_doc": 99},
     ),
+    "doc_cap_1": (
+        "At most ONE passage per document. With max_passages=10 this admits up "
+        "to 10 distinct documents instead of 5, which directly targets AllDocs "
+        "on 3- and 4-hop questions, where single-shot retrieval collapses "
+        "(bm25 reaches 1.2% AllDocs on 4-hop).",
+        {"assemble.max_per_doc": 1},
+    ),
+    "frontier_10": (
+        "Expand from the top 10 passages per round instead of 5. On a deep "
+        "chain the passage carrying the next bridge may sit below rank 5.",
+        {"iterative.frontier_passages": 10},
+    ),
+    "beam_6": (
+        "Bridge beam 6, between the default 4 and the beam_8 sweep point.",
+        {"iterative.beam_entities": 6},
+    ),
     "no_coverage": (
         "Zero the coverage term, leaving relevance + MMR diversity only.",
         {"assemble.coverage_weight": 0.0},

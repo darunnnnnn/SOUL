@@ -273,6 +273,51 @@ the frontier stay on the record as ablations (`floor_all`, `no_floor`), because
 the smaller-context setting is the right choice when tokens are the binding
 cost rather than recall.
 
+#### A negative result about this component
+
+The `no_assembly` ablation says plainly that **coverage-aware assembly does not
+earn its place on this benchmark.** Paired over the 150 dev questions, against
+plain top-k at the same word budget:
+
+| metric | with assembly | plain top-k | delta | adj *p* |
+|---|---|---|---|---|
+| `AllDocs` | 60.67 | 61.33 | −0.67 | 1.000 |
+| `SupAll` | 59.33 | 59.33 | 0.00 | 1.000 |
+| `DocCov` | 78.67 | 78.67 | 0.00 | 1.000 |
+| `EM` | 15.33 | 17.33 | −2.00 | 1.000 |
+| `#docs in context` | **8.81** | 8.49 | **+0.32** | **0.0008** |
+
+It does exactly what it was designed to do — significantly more distinct
+documents in the context — and that converts into **no gold-coverage gain
+whatever**. The EM difference even favours plain top-k, though not
+significantly.
+
+The cause is structural and measurable, not a tuning failure. In this knowledge
+base **93.4% of documents contribute exactly one passage** (mean 1.16
+passages/document), so a `max_per_doc = 2` cap can only bind on the 3.2% of
+documents holding three or more. MuSiQue's pools supply roughly one paragraph
+per Wikipedia article, so the failure mode the cap exists to prevent — one
+source consuming the whole budget with near-duplicate chunks — *barely occurs
+here by construction*. Verify with
+`python -m ctxlayer.cli diagnose corpus`.
+
+Two decisions follow, and I want to be explicit about both:
+
+* **The default is unchanged.** Flipping it on a *p* = 0.375 dev-set trend is
+  exactly the overfitting the held-out split exists to prevent, and no metric
+  is significantly worse. The component also still provides the structural
+  guarantee that a context cannot be monopolised by one source, which is
+  cheap insurance even where it is inert.
+* **The claim is narrowed.** I am not entitled to say assembly contributes to
+  the measured gain, and EVAL.md does not. On this benchmark the gain is
+  attributable to iterative bridged retrieval alone: removing it costs 12.7
+  points of `AllDocs` and drops the system onto the baseline (48.0 vs 49.3).
+
+The component would be exercised by a corpus with many passages per document —
+long articles or PDFs chunked at fixed token width, which is the common
+deployment case and the opposite of MuSiQue's one-paragraph-per-article pools.
+Testing that is the honest next step for it (§7), not asserting it works.
+
 ### 3.5 Synthesis: a fixed local reader, deliberately not an LLM
 
 The headline evaluation holds the generator **fixed** — same local model, same
@@ -448,7 +493,7 @@ Score and provenance are now separate concerns, and an empty round continues.
 | Fixed local extractive reader | clean credit attribution, determinism, zero cost | low absolute EM; `EM`/`F1` discriminate weakly (see §3.5) |
 | Rule-based query planning | gain is attributable to retrieval, not to an LLM | brittle on questions whose relation is implicit |
 | Paragraph-level retrieval unit | precise citations, natural semantics | a fact spanning two paragraphs needs both retrieved |
-| Hard per-document cap | guarantees multi-document context | can exclude a genuinely 3-passage-deep single source |
+| Hard per-document cap | guarantees no single source monopolises the context | **no measured benefit on this benchmark** (93.4% of documents hold one passage, so the cap is near-inert); can exclude a genuinely 3-passage-deep single source |
 | L2 lexical + numeric support | no 1.4 GB NLI dependency; exact for extractive claims | approximate for free-form paraphrase |
 | Chain claims from retrieval provenance | multi-document claim-level citations with exact verification, no generator | only as deep as the chain the retriever actually followed; a single-shot system gets none |
 
@@ -525,6 +570,13 @@ capitalisation and does not transfer to them.
 7. **Sentence-level retrieval as a second granularity**, fusing paragraph and
    sentence rankings, to attack the precision loss from 84-word passages whose
    relevant content is one clause.
+8. **Test coverage-aware assembly on a corpus that can exercise it.** It shows
+   no benefit on MuSiQue because 93.4% of documents contribute a single passage
+   (§3.4), so the per-document cap cannot bind. The honest test is a corpus of
+   long documents chunked at fixed token width -- many passages per document,
+   the common deployment shape -- where a top-k slice genuinely can spend its
+   whole budget on one source. Until that is measured, the component is
+   retained for its structural guarantee and credited with nothing.
 
 ---
 

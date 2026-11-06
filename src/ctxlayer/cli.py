@@ -29,6 +29,7 @@ import urllib.request
 from pathlib import Path
 
 from . import _env  # noqa: F401  (environment hardening must happen first)
+from ._sleep import keep_awake
 from .config import (
     PRESETS,
     EvalConfig,
@@ -289,12 +290,18 @@ def cmd_eval(args: argparse.Namespace) -> int:
     print(f"questions: {len(questions)}   setting: {args.setting}")
     print(f"reader: {base_cfg.reader.model if reader else 'none (retrieval only)'}\n")
 
-    for name in systems:
-        if name not in PRESETS:
-            print(f"unknown system {name!r}; known: {list(PRESETS)}", file=sys.stderr)
-            return 1
-        cfg = PRESETS[name]
-        run_system(kb, cfg, questions, ecfg, paths, reader=reader, setting=args.setting)
+    with keep_awake("ctxlayer evaluation") as awake:
+        if not awake:
+            print("note: could not inhibit sleep; keep the machine awake, or a "
+                  "suspend will corrupt latency records\n", file=sys.stderr)
+        for name in systems:
+            if name not in PRESETS:
+                print(f"unknown system {name!r}; known: {list(PRESETS)}",
+                      file=sys.stderr)
+                return 1
+            cfg = PRESETS[name]
+            run_system(kb, cfg, questions, ecfg, paths, reader=reader,
+                       setting=args.setting)
     print("\nraw outputs ->", paths.resolve("raw_outputs_dir") / ecfg.label)
     return 0
 

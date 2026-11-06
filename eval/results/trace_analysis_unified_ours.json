@@ -3,24 +3,26 @@
   "label": "unified",
   "n": 500,
   "gold_by_hop": {
-    "0": 933,
-    "1": 91,
-    "2": 3
+    "0": 857,
+    "1": 221,
+    "2": 19
   },
-  "gold_retrieved": 1027,
+  "gold_retrieved": 1097,
   "gold_total": 1331,
-  "bridged_share_of_retrieved_gold": 0.09152872444011685,
-  "questions_with_bridged_gold": 91,
+  "bridged_share_of_retrieved_gold": 0.2187784867821331,
+  "questions_with_bridged_gold": 228,
   "stop_reasons": {
-    "ran_full_budget": 500
+    "ran_full_budget": 55,
+    "gain_below_threshold": 439,
+    "no_frontier": 6
   },
-  "queries_per_question_mean": 13,
+  "queries_per_question_mean": 7.856,
   "bridged_share_by_hop_type": {
-    "2hop": 0.1141732283464567,
-    "3hop1": 0.05555555555555555,
-    "3hop2": 0.016260162601626015,
-    "4hop1": 0.019230769230769232,
-    "4hop2": 0.07692307692307693,
-    "4hop3": 0.075
+    "2hop": 0.25393700787401574,
+    "3hop1": 0.14722222222222223,
+    "3hop2": 0.15447154471544713,
+    "4hop1": 0.10096153846153846,
+    "4hop2": 0.11538461538461539,
+    "4hop3": 0.15
   }
 }

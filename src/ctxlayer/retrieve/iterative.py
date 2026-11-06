@@ -88,6 +88,30 @@ def _minmax_norm(values: list[float]) -> list[float]:
     return [(v - lo) / (hi - lo) for v in values]
 
 
+def _sigmoid(x: float) -> float:
+    if x >= 0.0:
+        return 1.0 / (1.0 + math.exp(-x))
+    e = math.exp(x)
+    return e / (1.0 + e)
+
+
+def _relevance_ratio(round_best_raw: float, round0_best_raw: float) -> float:
+    """How relevant this round's best find is, relative to round 0's.
+
+    Cross-encoder scores are logits and routinely negative, so a bare ratio is
+    meaningless (and sign-flipping). Squashing both through a sigmoid puts them
+    on a common (0, 1) relevance scale on which a ratio is well-defined and
+    monotone in the underlying score. When reranking is disabled the inputs are
+    small positive fusion scores, both squash to ~0.5, and the ratio is ~1.0 --
+    i.e. the stop simply never fires, which is the correct degenerate behaviour
+    for a configuration that has no relevance signal to threshold on.
+    """
+    denom = _sigmoid(round0_best_raw)
+    if denom < 1e-9:
+        return 1.0
+    return _sigmoid(round_best_raw) / denom
+
+
 class IterativeRetriever:
     def __init__(self, kb: KnowledgeBase, cfg: SystemConfig) -> None:
         self.kb = kb
@@ -137,12 +161,58 @@ class IterativeRetriever:
                 idf = self._entity_idf(key)
                 if idf < cfg.min_entity_idf:
                     continue
+                # Reachability gate. `idf * parent_chain` peaks at df == 1, but
+                # an entity mentioned only in its own parent passage has nowhere
+                # to lead: its candidate set is the parent, which is filtered
+                # out as a self-link, so the round returns nothing. An entity
+                # that titles a document is exempt -- it reaches that
+                # document's passages via the title index regardless of df.
+                if ents.df(key) < cfg.min_entity_df and ents.resolve_entity(key) is None:
+                    continue
                 score = idf * max(entry.chain, 1e-3)
                 prev = scored.get(key)
                 if prev is None or score > prev[0]:
                     scored[key] = (score, entry)
         ranked = sorted(scored.items(), key=lambda kv: (-kv[1][0], kv[0]))
-        return [(k, v[0], v[1]) for k, v in ranked[: cfg.beam_entities]]
+
+        # Diversity pass. Score alone concentrates the beam: every entity drawn
+        # from the same parent is scaled by that parent's chain score, so a
+        # single highly-ranked passage -- including a wrongly-ranked one -- can
+        # supply every slot, and nested variants of one name can supply most of
+        # them. Both failure modes were observed together; see the field notes
+        # on `max_bridges_per_passage`. Walking in score order and skipping
+        # entities that violate either constraint keeps the ranking intact while
+        # spreading the beam across the frontier.
+        out: list[tuple[str, float, _PoolEntry]] = []
+        per_parent: dict[str, int] = {}
+        taken_toks: list[set[str]] = []
+        cap = max(1, cfg.max_bridges_per_passage)
+        for key, (score, entry) in ranked:
+            if len(out) >= cfg.beam_entities:
+                break
+            if per_parent.get(entry.passage_id, 0) >= cap:
+                continue
+            toks = {t for t in key.split() if t not in STOPWORDS}
+            if cfg.dedupe_nested_bridges and toks and any(
+                toks <= prev or prev <= toks for prev in taken_toks
+            ):
+                continue
+            out.append((key, score, entry))
+            per_parent[entry.passage_id] = per_parent.get(entry.passage_id, 0) + 1
+            if toks:
+                taken_toks.append(toks)
+
+        # The constraints are preferences, not hard limits: if they leave the
+        # beam underfilled there is no reason to waste the remaining slots, so
+        # backfill in score order from what they rejected.
+        if len(out) < cfg.beam_entities:
+            chosen = {k for k, _, _ in out}
+            for key, (score, entry) in ranked:
+                if len(out) >= cfg.beam_entities:
+                    break
+                if key not in chosen:
+                    out.append((key, score, entry))
+        return out
 
     # -------------------------------------------------------------- retrieve
     def retrieve(
@@ -162,6 +232,7 @@ class IterativeRetriever:
         expanded: set[str] = set()
         used_entities: set[str] = set()
         best_overall = 0.0
+        barren = 0
 
         # ---------------- round 0: the question itself --------------------
         t0 = time.time()
@@ -181,9 +252,14 @@ class IterativeRetriever:
                 components=dict(c.components),
             )
         best_overall = max(rel, default=0.0)
+        # Round 0's best *raw* score is the reference for the adaptive stop.
+        # rel_norm cannot serve: min-max normalisation pins it to 1.0 by
+        # construction, which is what made the stop inert.
+        round0_best_raw = max((c.score for c in round0), default=0.0)
         trace.add_round(
             round=0, query=question, n_retrieved=len(round0),
             best_rel=round(best_overall, 4),
+            best_raw=round(round0_best_raw, 4),
             ms=round((time.time() - t0) * 1000, 1),
         )
 
@@ -193,8 +269,16 @@ class IterativeRetriever:
         # ---------------- rounds 1..max_rounds ----------------------------
         for rnd in range(1, icfg.max_rounds + 1):
             t_round = time.time()
+            # Only expand passages that are themselves plausibly relevant.
+            # Expanding the best of a bad round 0 is how the search drifts off
+            # the question entirely (see IterativeConfig.min_frontier_rel).
             frontier = sorted(
-                (e for e in pool.values() if e.passage_id not in expanded),
+                (
+                    e
+                    for e in pool.values()
+                    if e.passage_id not in expanded
+                    and e.rel_norm >= icfg.min_frontier_rel
+                ),
                 key=lambda e: (-e.chain, e.passage_id),
             )[: icfg.frontier_passages]
             if not frontier:
@@ -262,11 +346,16 @@ class IterativeRetriever:
                 # better -- bridges. Breaking here cost a correct answer:
                 # round 1 spent its beam on weak entities, returned nothing,
                 # and the search stopped before ever expanding "james watt".
-                trace.add_round(round=rnd, empty_round=True)
+                barren += 1
+                trace.add_round(round=rnd, empty_round=True, barren=barren)
+                if barren >= icfg.max_barren_rounds:
+                    trace.add_round(round=rnd, stopped="barren_rounds")
+                    break
                 continue
 
             # Chain scoring, normalised within this round.
             rel_norm = _minmax_norm([h.score for h, _, _, _ in round_new])
+            round_best_raw = max(h.score for h, _, _, _ in round_new)
             decay = icfg.hop_decay**rnd
             added = 0
             round_best = 0.0
@@ -312,16 +401,23 @@ class IterativeRetriever:
                     }
                 added += 1
 
+            if added:
+                barren = 0
+
             trace.add_round(
                 round=rnd,
                 bridges=[b[0] for b in bridges],
                 n_new=added,
                 round_best=round(round_best, 4),
+                round_best_raw=round(round_best_raw, 4),
                 ms=round((time.time() - t_round) * 1000, 1),
             )
 
-            # Adaptive stop: this round found nothing competitive.
-            if round_best < icfg.gain_threshold * max(best_overall, 1e-6):
+            # Adaptive stop: this round's best find is far less relevant than
+            # round 0's. Compared on sigmoid-squashed *raw* reranker scores --
+            # chain scores are min-max normalised per round and so carry no
+            # information about whether the round actually found anything.
+            if _relevance_ratio(round_best_raw, round0_best_raw) < icfg.gain_threshold:
                 trace.add_round(round=rnd, stopped="gain_below_threshold")
                 best_overall = max(best_overall, round_best)
                 break

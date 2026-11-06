@@ -126,6 +126,25 @@ ABLATIONS: dict[str, tuple[str, dict[str, Any]]] = {
         "whether early stopping costs recall or only saves compute.",
         {"iterative.gain_threshold": 0.0},
     ),
+    "no_reach_gate": (
+        "Drop the bridge reachability gate (min_entity_df=1), restoring the "
+        "pure idf x parent_chain bridge ranking. That ranking peaks at df==1, "
+        "where an entity's only candidate is the parent that supplied it, so "
+        "this measures how much of the gain comes from refusing to expand "
+        "entities that cannot reach a new document. Pre-gate, 87.5% of "
+        "selected bridges had df==1.",
+        {"iterative.min_entity_df": 1},
+    ),
+    "no_frontier_floor": (
+        "Expand the top frontier passages regardless of their own relevance "
+        "(min_frontier_rel=0.0). Measures the cost of bridge drift: following "
+        "entities out of passages that were never relevant to the question.",
+        {"iterative.min_frontier_rel": 0.0},
+    ),
+    "no_barren_stop": (
+        "Never stop on consecutive empty rounds; spend the full hop budget.",
+        {"iterative.max_barren_rounds": 99},
+    ),
     # ---- beam --------------------------------------------------------------
     "beam_2": ("Narrower bridge beam (2 entities/round).", {"iterative.beam_entities": 2}),
     "beam_8": ("Wider bridge beam (8 entities/round).", {"iterative.beam_entities": 8}),

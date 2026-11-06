@@ -259,8 +259,18 @@ class IterativeConfig(_Base):
     # than for an open query and a deep rerank buys little. This is the main
     # lever on total cross-encoder cost (~350 vs ~540 pairs/question).
     bridge_rerank_depth: int = 24
-    # Adaptive stop: halt when the best new passage of a round scores below
-    # this fraction of the best score seen so far.
+    # Adaptive stop: halt when the best new passage of a round is less relevant
+    # than this fraction of round 0's best passage.
+    #
+    # Compared on *raw* reranker scores squashed through a sigmoid, not on the
+    # chain score. Chain scores are min-max normalised within their round, so
+    # the round's best passage always has rel_norm == 1.0 and `round_best`
+    # collapses to a near-deterministic function of the round index
+    # (0.92^r x (0.6 + 0.3 x parent + 0.1 x idf)). Measured: round 1 mean 0.905,
+    # round 2 0.751, round 3 0.647, versus a 0.55 threshold -- the stop could
+    # not fire, and did not fire once in 500 questions, so every 2-hop question
+    # paid the full 4-hop cost. The sigmoid keeps the comparison well-defined
+    # for the negative logits a cross-encoder emits.
     gain_threshold: float = 0.55
     # Use the mention index for candidate generation (vs. plain re-query).
     use_graph: bool = True
@@ -285,6 +295,79 @@ class IterativeConfig(_Base):
     # usable as a bridge: common entities expand the frontier without
     # discriminating.
     min_entity_idf: float = 0.35
+    # Minimum *reach* for a bridge entity: how many passages it can lead to.
+    #
+    # This exists because ranking bridges by `idf x parent_chain` is maximised
+    # exactly when df == 1 -- an entity mentioned in a single passage, namely
+    # the parent that supplied it. Expanding such an entity can only return the
+    # parent, which is then filtered out as a self-link, so the round yields
+    # nothing. Measured on the 500-question dev subset *before* this gate:
+    # 87.5% of selected bridges had df == 1 and 86.8% had a total candidate set
+    # of <= 1 passage, i.e. the beam spent ~7 of every 8 slots on entities that
+    # were mathematically incapable of reaching a new document, and round 1
+    # produced zero new passages on 291 of 500 questions.
+    #
+    # An entity that names a document ("Steve Hillage") is exempt: it reaches
+    # that document's passages through the title index even when its mention
+    # df is 1.
+    min_entity_df: int = 2
+    # Do not expand a frontier passage whose own relevance is below this.
+    #
+    # The frontier was previously the top-N by chain score regardless of
+    # absolute quality, so on a question where round 0 found nothing good we
+    # would still expand its best-of-a-bad-lot passages and follow their
+    # entities away from the question. Observed as bridge drift: a question
+    # about Saudi Arabia expanded "gulf war syndrome" -> "hephthalite empire"
+    # -> "manichaeism" -> "golfo de mexico", reaching none of its four gold
+    # documents. Scored on `rel_norm`, which is hop-independent, rather than
+    # `chain`, which decays with depth.
+    min_frontier_rel: float = 0.25
+    # Stop after this many *consecutive* rounds that add no new passage.
+    # Without it a barren round only `continue`s, so a search that has clearly
+    # run out of reachable evidence still pays for every remaining round.
+    max_barren_rounds: int = 2
+    # Max beam slots one frontier passage may supply in a round.
+    #
+    # `_select_bridges` scored every entity independently and took the global
+    # top-N, with no constraint on where those entities came from. Because an
+    # entity's score is `idf * parent.chain`, every entity sharing the
+    # highest-scoring parent is boosted by the same factor, so one passage
+    # routinely swept the whole beam. Measured on
+    # 4hop1__105401_17130_70784_79935, a question about Saudi Arabia and
+    # Israel: all 4 slots went to "department of veteran",
+    # "department of veteran affair", "us department" and "veteran affair",
+    # every one of them from a single irrelevant passage that round 0 happened
+    # to rank second ("Military history of the United States"). The question's
+    # own bridge-worthy entities were never expanded, and none of its four gold
+    # documents was reached. Capping per-parent contribution forces the beam to
+    # sample across the frontier instead of amplifying one ranking error.
+    #
+    # MEASURED AND REJECTED. Capping at 2 cost -3.1 points of all-docs recall
+    # (0.389 -> 0.357, p=0.030) and -2.3 of doc coverage (p=0.002) on the 350
+    # held-out questions. The premise was wrong in the common case: when a
+    # passage is genuinely the right one it legitimately carries several useful
+    # bridge entities, and the cap discards them to make room for entities from
+    # weaker passages. The concentration failure is real but rare, so paying
+    # for it on every question is a net loss. Disabled by default (a cap at the
+    # beam width is a no-op); kept as a flag because it is the ablation that
+    # establishes the negative result.
+    max_bridges_per_passage: int = 4
+    # Suppress a bridge entity whose non-stopword tokens are a subset of an
+    # already-selected entity's.
+    #
+    # Such pairs retrieve near-identical candidate sets -- the mention index
+    # keys on phrase containment, so "veteran affair" matches a subset of what
+    # "department of veteran affair" matches -- and therefore cost two beam
+    # slots to cover one region of the corpus. In the question above, three of
+    # the four slots were nested variants of one entity.
+    #
+    # MEASURED AND REJECTED, with the cap above. The subset test is too blunt:
+    # it cannot distinguish a redundant spelling ("veteran affair" inside
+    # "department of veteran affair") from two genuinely different entities
+    # where one name nests in the other ("Saudi Arabia" inside "History of
+    # Saudi Arabia" -- distinct documents, both worth expanding). It discarded
+    # the second kind along with the first.
+    dedupe_nested_bridges: bool = False
 
 
 @dataclass

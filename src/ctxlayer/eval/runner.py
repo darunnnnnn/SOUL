@@ -151,6 +151,8 @@ def run_system(
 
     layer = ContextLayer(kb, cfg)
     t_start = time.time()
+    # Per-question wall times, for a suspend-robust median-based ETA.
+    _per_question_s: list[float] = []
     n = len(questions)
 
     with path.open("w", encoding="utf-8") as fh:
@@ -281,14 +283,23 @@ def run_system(
                 )
                 rec["citation_report"] = report.to_dict()
 
+            _per_question_s.append(time.time() - t0)
             fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
             if verbose and (i % progress_every == 0 or i == n):
                 el = time.time() - t_start
-                eta = el / i * (n - i)
+                # ETA from the MEDIAN per-question cost, not elapsed/i. Wall
+                # clock includes machine suspend: an overnight run charged 6.5
+                # hours to one question when the laptop slept, and an
+                # elapsed/i ETA then projected 18 hours against a true ~20
+                # minutes -- which is exactly how a healthy run gets killed.
+                # The median is unmoved by such an outlier.
+                per_q = sorted(_per_question_s)
+                med = per_q[len(per_q) // 2] if per_q else 0.0
+                eta = med * (n - i)
                 print(
                     f"\r  {cfg.name:16s} {i}/{n}  {el:6.1f}s elapsed  "
-                    f"{eta:6.1f}s eta",
+                    f"{eta:6.1f}s eta ({med:.2f}s/q median)",
                     end="",
                     flush=True,
                 )

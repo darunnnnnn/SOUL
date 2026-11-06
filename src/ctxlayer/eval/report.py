@@ -260,6 +260,7 @@ def load_runs(
     setting: str,
     systems: Iterable[str] | None = None,
     holdout_skip: int = 0,
+    allow_mixed_commits: bool = False,
 ) -> RunSet:
     base = paths.resolve("raw_outputs_dir") / setting
     if not base.exists():
@@ -287,7 +288,12 @@ def load_runs(
         if not records:
             continue
         runs[name] = Run(name, header.get("description", ""), header, records)
-    return RunSet(setting, runs, holdout_skip=holdout_skip)
+    return RunSet(
+        setting,
+        runs,
+        holdout_skip=holdout_skip,
+        allow_mixed_commits=allow_mixed_commits,
+    )
 
 
 # --------------------------------------------------------------------------
@@ -357,10 +363,16 @@ def build_report(
     order: Sequence[str] | None = None,
     ecfg: EvalConfig | None = None,
     holdout_skip: int = 0,
+    allow_mixed_commits: bool = False,
 ) -> dict[str, Any]:
     """Recompute every aggregate for one setting and persist it."""
     ecfg = ecfg or EvalConfig()
-    rs = load_runs(paths, setting, holdout_skip=holdout_skip)
+    rs = load_runs(
+        paths,
+        setting,
+        holdout_skip=holdout_skip,
+        allow_mixed_commits=allow_mixed_commits,
+    )
     default_order = [
         "closed_book", "bm25", "dense", "hybrid", "hybrid_rerank", "ours", "oracle",
     ]

@@ -1,0 +1,26 @@
+{
+  "system": "ours",
+  "label": "unified",
+  "n": 500,
+  "gold_by_hop": {
+    "0": 933,
+    "1": 91,
+    "2": 3
+  },
+  "gold_retrieved": 1027,
+  "gold_total": 1331,
+  "bridged_share_of_retrieved_gold": 0.09152872444011685,
+  "questions_with_bridged_gold": 91,
+  "stop_reasons": {
+    "ran_full_budget": 500
+  },
+  "queries_per_question_mean": 13,
+  "bridged_share_by_hop_type": {
+    "2hop": 0.1141732283464567,
+    "3hop1": 0.05555555555555555,
+    "3hop2": 0.016260162601626015,
+    "4hop1": 0.019230769230769232,
+    "4hop2": 0.07692307692307693,
+    "4hop3": 0.075
+  }
+}

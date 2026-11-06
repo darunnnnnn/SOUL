@@ -458,11 +458,24 @@ def write_eval_md(paths: PathsConfig, ecfg: EvalConfig) -> Path:
             )
             A(f"| {label} | {by_hop[h]} | {by_hop[h] / total * 100:.1f}% |")
         A("")
-        A(f"**{tr.get('bridged_share_of_retrieved_gold', 0) * 100:.1f}%** of "
-          f"the gold evidence we retrieve is bridge-only, and "
-          f"{tr.get('questions_with_bridged_gold', 0)}/{tr.get('n', 0)} "
-          f"questions depend on at least one bridged passage. Mean queries "
-          f"issued per question: {tr.get('queries_per_question_mean', 0):.1f}.\n")
+        bridged_share = tr.get("bridged_share_of_retrieved_gold", 0) * 100
+        n_bridge_q = tr.get("questions_with_bridged_gold", 0)
+        n_tr = tr.get("n", 0) or 1
+        A(f"**{bridged_share:.1f}%** of the gold evidence we retrieve is "
+          f"bridge-only, and {n_bridge_q}/{n_tr} questions "
+          f"({n_bridge_q / n_tr * 100:.0f}%) depend on at least one bridged "
+          f"passage. Mean queries issued per question: "
+          f"{tr.get('queries_per_question_mean', 0):.1f}.\n")
+        A("That share is worth stating carefully, because it is smaller than "
+          "the headline gain might suggest: most gold evidence *is* reachable "
+          "from the question, and round 0 finds it. The bridged minority is "
+          "disproportionately decisive only because `AllDocs` and `SupAll` are "
+          "**all-or-nothing per question** -- one missing document fails the "
+          "whole question, so recovering a single otherwise-unreachable "
+          "passage can flip a question outright. The gain is therefore "
+          "leverage on a minority of evidence, not a uniform lift, and the "
+          "`no_iterative` ablation separates that contribution from the "
+          "assembly component.\n")
         stops = tr.get("stop_reasons", {})
         if stops:
             A("Adaptive stop, by reason: "

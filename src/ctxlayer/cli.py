@@ -331,7 +331,13 @@ def cmd_report(args: argparse.Namespace) -> int:
     ecfg = EvalConfig(setting=args.setting, seed=args.seed,
                       out_label=args.out_label or "")
     holdout = ecfg.tuning_split if args.holdout else 0
-    rep = build_report(paths, ecfg.label, ecfg=ecfg, holdout_skip=holdout)
+    rep = build_report(
+        paths,
+        ecfg.label,
+        ecfg=ecfg,
+        holdout_skip=holdout,
+        allow_mixed_commits=args.allow_mixed_commits,
+    )
     tag = (
         f" | held-out: first {holdout} tuning questions dropped" if holdout else ""
     )
@@ -472,6 +478,15 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--seed", type=int, default=20251105)
     r.add_argument("--write-md", action="store_true", help="also regenerate EVAL.md")
     r.add_argument("--out-label", default=None, dest="out_label")
+    r.add_argument(
+        "--allow-mixed-commits",
+        action="store_true",
+        dest="allow_mixed_commits",
+        help="tabulate runs produced by different commits. Only correct when "
+             "the code difference provably cannot affect the systems being "
+             "compared -- e.g. re-running `ours` alone after a change confined "
+             "to the iterative retriever, which every baseline disables.",
+    )
     r.add_argument("--holdout", action="store_true",
                    help="drop the questions used for hyperparameter tuning")
     r.set_defaults(func=cmd_report)

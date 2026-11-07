@@ -179,7 +179,26 @@ def run_system(
                         "selection_params": kb.stats.get("selection_params"),
                     },
                     "reader": (
-                        {"kind": cfg.reader.kind, "model": cfg.reader.model}
+                        {
+                            "kind": cfg.reader.kind,
+                            # Record the model that actually produced these
+                            # answers. `reader.model` names the local
+                            # extractive checkpoint and is meaningless for an
+                            # LLM run; writing it there would make the artefact
+                            # claim a reader it did not use, and report.py
+                            # compares reader identity across systems.
+                            "model": (
+                                cfg.reader.llm_model
+                                if cfg.reader.kind == "llm"
+                                else cfg.reader.model
+                            ),
+                            **(
+                                {"llm_provider": cfg.reader.llm_provider,
+                                 "llm_temperature": cfg.reader.llm_temperature}
+                                if cfg.reader.kind == "llm"
+                                else {}
+                            ),
+                        }
                         if reader is not None
                         else {"kind": "none"}
                     ),

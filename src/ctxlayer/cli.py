@@ -204,9 +204,14 @@ def cmd_ask(args: argparse.Namespace) -> int:
     if args.no_answer:
         return 0
 
-    from .synth.reader import ExtractiveReader
-
-    reader = ExtractiveReader(cfg.reader)
+    # Use the same factory the evaluation uses, so `ask --system ours_llm`
+    # exercises the LLM reader rather than silently falling back to the
+    # extractive one. A demo path that answers with a different reader than
+    # the one named on the command line is worse than no demo path.
+    reader = _reader_for(cfg, paths)
+    if reader is None:
+        print("\nreader.kind='none'; no answer produced.")
+        return 0
     ans = reader.read(question, ctx, focus=plan.focus)
     attach_evidence_chain(kb, ans)
     verify_citations(kb, ans)
@@ -238,6 +243,21 @@ def cmd_ask(args: argparse.Namespace) -> int:
 # --------------------------------------------------------------------------
 
 
+def reader_identity(cfg: SystemConfig) -> tuple:
+    """Everything the generator's behaviour depends on.
+
+    Two systems with equal identities must be read by the same reader
+    instance, and two with different identities must not share one. The
+    evaluation relies on the first half so an answer-level delta cannot come
+    from a different generator; it relies on the second half so a system
+    configured for the LLM reader is not silently read by the extractive one
+    while its run header records ``kind: llm``.
+    """
+    r = cfg.reader
+    return (r.kind, r.model, r.llm_provider, r.llm_model,
+            r.llm_temperature, r.llm_max_tokens)
+
+
 def _reader_for(cfg: SystemConfig, paths: PathsConfig | None = None):
     """Build the reader, attaching the exact-input memoisation cache.
 
@@ -248,9 +268,15 @@ def _reader_for(cfg: SystemConfig, paths: PathsConfig | None = None):
     if cfg.reader.kind == "none":
         return None
     if cfg.reader.kind == "llm":
+        from .index.score_cache import BlobCache
         from .synth.llm import LLMReader
 
-        r = LLMReader(cfg.reader)
+        llm_cache = None
+        if paths is not None:
+            llm_cache = BlobCache(
+                paths.resolve("cache_dir") / "llm_answers.sqlite", "llm-v1"
+            )
+        r = LLMReader(cfg.reader, cache=llm_cache)
         if not r.available:
             print(
                 f"WARNING: no API key for {cfg.reader.llm_provider}; "
@@ -282,9 +308,28 @@ def cmd_eval(args: argparse.Namespace) -> int:
     kb.enable_score_cache(paths, base_cfg)
 
     questions = res.questions[: args.limit] if args.limit else res.questions
-    # One reader instance shared by every system: answer-level deltas cannot
-    # come from a different generator.
-    reader = None if args.no_reader else _reader_for(base_cfg, paths)
+    # One reader instance per *distinct reader configuration*, shared by every
+    # system that asks for it. The invariant that matters is that systems
+    # compared in the same table are read by the same generator, so an
+    # answer-level delta cannot come from a different reader. Keying on the
+    # reader config preserves that while allowing a second table (the
+    # llm-reader systems) to use its own generator -- previously a single
+    # reader was built from PRESETS["ours"] and handed to every system, so a
+    # system configured for the LLM reader was silently read by the extractive
+    # one while its header recorded `kind: llm`. The artefact claimed a reader
+    # it had not used, which is exactly the kind of mismatch the header exists
+    # to rule out.
+    _readers: dict[tuple, object] = {}
+
+    def reader_for(c):
+        if args.no_reader:
+            return None
+        key = reader_identity(c)
+        if key not in _readers:
+            _readers[key] = _reader_for(c, paths)
+        return _readers[key]
+
+    reader = reader_for(base_cfg)
 
     print(f"\ncorpus: {kb.n_passages} passages / {kb.n_documents} documents")
     print(f"questions: {len(questions)}   setting: {args.setting}")
@@ -300,8 +345,8 @@ def cmd_eval(args: argparse.Namespace) -> int:
                       file=sys.stderr)
                 return 1
             cfg = PRESETS[name]
-            run_system(kb, cfg, questions, ecfg, paths, reader=reader,
-                       setting=args.setting)
+            run_system(kb, cfg, questions, ecfg, paths,
+                       reader=reader_for(cfg), setting=args.setting)
     print("\nraw outputs ->", paths.resolve("raw_outputs_dir") / ecfg.label)
     return 0
 

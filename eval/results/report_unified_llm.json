@@ -1,0 +1,1638 @@
+{
+  "setting": "unified_llm",
+  "holdout_skip": 0,
+  "n_questions": 500,
+  "systems": [
+    "closed_book_llm",
+    "hybrid_rerank_llm",
+    "oracle_llm",
+    "ours_llm"
+  ],
+  "order": [
+    "closed_book_llm",
+    "hybrid_rerank_llm",
+    "oracle_llm",
+    "ours_llm"
+  ],
+  "summary": {
+    "closed_book_llm": {
+      "_description": "LLM reader, no retrieval. Measures how much of the benchmark the model answers from parametric memory alone; the floor every LLM-reader row must be compared against.",
+      "abstained": {
+        "mean": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "all_docs@10": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "all_docs@2": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "all_docs@20": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "all_docs@5": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "answer_em": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "answer_f1": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "citation_precision": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "citation_recall": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "citation_validity": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "ctx_all_docs": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "ctx_doc_coverage": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "ctx_n_docs": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "ctx_n_passages": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "ctx_support_all": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "ctx_support_precision": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "ctx_support_recall": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "ctx_words": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "doc_coverage@10": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "doc_coverage@2": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "doc_coverage@20": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "doc_coverage@5": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "has_citation": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "mrr": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "multi_doc_citation": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "n_citations": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "n_cited_docs": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "ndcg@10": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "ndcg@2": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "ndcg@20": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "ndcg@5": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "support_all@10": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "support_all@2": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "support_all@20": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "support_all@5": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "support_precision@10": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "support_precision@2": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "support_precision@20": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "support_precision@5": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "support_recall@10": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "support_recall@2": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "support_recall@20": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "support_recall@5": {
+        "mean": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "_latency_ms_median": 0.0,
+      "_n_queries_mean": 0
+    },
+    "hybrid_rerank_llm": {
+      "_description": "Strongest single-shot baseline with the LLM reader. Holds the reader fixed so the gap to ours_llm is attributable to retrieval, not to generation.",
+      "abstained": {
+        "mean": 0.356,
+        "ci95": [
+          0.31395,
+          0.398
+        ]
+      },
+      "all_docs@10": {
+        "mean": 0.336,
+        "ci95": [
+          0.29595,
+          0.37404999999999994
+        ]
+      },
+      "all_docs@2": {
+        "mean": 0.088,
+        "ci95": [
+          0.062,
+          0.11204999999999996
+        ]
+      },
+      "all_docs@20": {
+        "mean": 0.436,
+        "ci95": [
+          0.392,
+          0.476
+        ]
+      },
+      "all_docs@5": {
+        "mean": 0.248,
+        "ci95": [
+          0.212,
+          0.286
+        ]
+      },
+      "answer_em": {
+        "mean": 0.26,
+        "ci95": [
+          0.222,
+          0.298
+        ]
+      },
+      "answer_f1": {
+        "mean": 0.3399928733896536,
+        "ci95": [
+          0.3025226515978002,
+          0.3772630623468951
+        ]
+      },
+      "citation_precision": {
+        "mean": 0.684554761904762,
+        "ci95": [
+          0.6533071428571429,
+          0.7131929761904762
+        ]
+      },
+      "citation_recall": {
+        "mean": 0.6051666666666666,
+        "ci95": [
+          0.578825,
+          0.6286666666666667
+        ]
+      },
+      "citation_validity": {
+        "mean": 0.9957809523809524,
+        "ci95": [
+          0.9900054761904762,
+          0.9997142857142858
+        ]
+      },
+      "ctx_all_docs": {
+        "mean": 0.322,
+        "ci95": [
+          0.28,
+          0.36
+        ]
+      },
+      "ctx_doc_coverage": {
+        "mean": 0.6571666666666667,
+        "ci95": [
+          0.6339958333333333,
+          0.6796708333333333
+        ]
+      },
+      "ctx_n_docs": {
+        "mean": 8.116,
+        "ci95": [
+          7.9319500000000005,
+          8.30415
+        ]
+      },
+      "ctx_n_passages": {
+        "mean": 9.026,
+        "ci95": [
+          8.90385,
+          9.14605
+        ]
+      },
+      "ctx_support_all": {
+        "mean": 0.296,
+        "ci95": [
+          0.254,
+          0.334
+        ]
+      },
+      "ctx_support_precision": {
+        "mean": 0.1861730158730159,
+        "ci95": [
+          0.17913329365079367,
+          0.19351164682539684
+        ]
+      },
+      "ctx_support_recall": {
+        "mean": 0.6441666666666667,
+        "ci95": [
+          0.620825,
+          0.6670041666666666
+        ]
+      },
+      "ctx_words": {
+        "mean": 756.26,
+        "ci95": [
+          745.9218000000001,
+          766.15345
+        ]
+      },
+      "doc_coverage@10": {
+        "mean": 0.6731666666666667,
+        "ci95": [
+          0.6498333333333333,
+          0.6958375
+        ]
+      },
+      "doc_coverage@2": {
+        "mean": 0.454,
+        "ci95": [
+          0.43182083333333326,
+          0.47334166666666666
+        ]
+      },
+      "doc_coverage@20": {
+        "mean": 0.7328333333333332,
+        "ci95": [
+          0.711,
+          0.7548416666666666
+        ]
+      },
+      "doc_coverage@5": {
+        "mean": 0.6038333333333333,
+        "ci95": [
+          0.5798291666666666,
+          0.6273458333333333
+        ]
+      },
+      "has_citation": {
+        "mean": 0.998,
+        "ci95": [
+          0.994,
+          1.0
+        ]
+      },
+      "mrr": {
+        "mean": 0.8669864258347018,
+        "ci95": [
+          0.8421562253694581,
+          0.8894737301587301
+        ]
+      },
+      "multi_doc_citation": {
+        "mean": 0.796,
+        "ci95": [
+          0.762,
+          0.828
+        ]
+      },
+      "n_citations": {
+        "mean": 3.072,
+        "ci95": [
+          2.928,
+          3.22405
+        ]
+      },
+      "n_cited_docs": {
+        "mean": 2.254,
+        "ci95": [
+          2.156,
+          2.352
+        ]
+      },
+      "ndcg@10": {
+        "mean": 0.6407836657138505,
+        "ci95": [
+          0.6211606078348604,
+          0.6586325424364993
+        ]
+      },
+      "ndcg@2": {
+        "mean": 0.60431065252742,
+        "ci95": [
+          0.5806284825726359,
+          0.6259412230904887
+        ]
+      },
+      "ndcg@20": {
+        "mean": 0.6608773401137534,
+        "ci95": [
+          0.6414252982868385,
+          0.677456219188168
+        ]
+      },
+      "ndcg@5": {
+        "mean": 0.6100072357578467,
+        "ci95": [
+          0.5891064872926438,
+          0.6297031032640872
+        ]
+      },
+      "support_all@10": {
+        "mean": 0.31,
+        "ci95": [
+          0.268,
+          0.35
+        ]
+      },
+      "support_all@2": {
+        "mean": 0.076,
+        "ci95": [
+          0.052,
+          0.09804999999999996
+        ]
+      },
+      "support_all@20": {
+        "mean": 0.41,
+        "ci95": [
+          0.366,
+          0.45
+        ]
+      },
+      "support_all@5": {
+        "mean": 0.22,
+        "ci95": [
+          0.184,
+          0.256
+        ]
+      },
+      "support_precision@10": {
+        "mean": 0.168,
+        "ci95": [
+          0.1628,
+          0.17360500000000004
+        ]
+      },
+      "support_precision@2": {
+        "mean": 0.55,
+        "ci95": [
+          0.527975,
+          0.572
+        ]
+      },
+      "support_precision@20": {
+        "mean": 0.09210000000000003,
+        "ci95": [
+          0.0891975,
+          0.09520250000000002
+        ]
+      },
+      "support_precision@5": {
+        "mean": 0.298,
+        "ci95": [
+          0.2876,
+          0.30960000000000004
+        ]
+      },
+      "support_recall@10": {
+        "mean": 0.659,
+        "ci95": [
+          0.636,
+          0.6810041666666667
+        ]
+      },
+      "support_recall@2": {
+        "mean": 0.43866666666666665,
+        "ci95": [
+          0.4161625,
+          0.45784583333333334
+        ]
+      },
+      "support_recall@20": {
+        "mean": 0.718,
+        "ci95": [
+          0.6966375,
+          0.7403333333333333
+        ]
+      },
+      "support_recall@5": {
+        "mean": 0.588,
+        "ci95": [
+          0.5643291666666665,
+          0.6110083333333333
+        ]
+      },
+      "_latency_ms_median": 47.95,
+      "_n_queries_mean": 1
+    },
+    "oracle_llm": {
+      "_description": "Gold paragraphs with the LLM reader. Upper bound for the LLM table, separating retrieval error from synthesis error.",
+      "abstained": {
+        "mean": 0.08,
+        "ci95": [
+          0.058,
+          0.104
+        ]
+      },
+      "all_docs@10": {
+        "mean": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "all_docs@2": {
+        "mean": 0.516,
+        "ci95": [
+          0.468,
+          0.56
+        ]
+      },
+      "all_docs@20": {
+        "mean": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "all_docs@5": {
+        "mean": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "answer_em": {
+        "mean": 0.628,
+        "ci95": [
+          0.588,
+          0.674
+        ]
+      },
+      "answer_f1": {
+        "mean": 0.7370482193626358,
+        "ci95": [
+          0.7034446779910911,
+          0.7698705622381051
+        ]
+      },
+      "citation_precision": {
+        "mean": 0.9935,
+        "ci95": [
+          0.9859875,
+          0.9995
+        ]
+      },
+      "citation_recall": {
+        "mean": 0.8973333333333332,
+        "ci95": [
+          0.8798291666666666,
+          0.9131666666666667
+        ]
+      },
+      "citation_validity": {
+        "mean": 0.9932000000000001,
+        "ci95": [
+          0.9856,
+          0.9992000000000001
+        ]
+      },
+      "ctx_all_docs": {
+        "mean": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "ctx_doc_coverage": {
+        "mean": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "ctx_n_docs": {
+        "mean": 2.648,
+        "ci95": [
+          2.58395,
+          2.72005
+        ]
+      },
+      "ctx_n_passages": {
+        "mean": 2.662,
+        "ci95": [
+          2.598,
+          2.73405
+        ]
+      },
+      "ctx_support_all": {
+        "mean": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "ctx_support_precision": {
+        "mean": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "ctx_support_recall": {
+        "mean": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "ctx_words": {
+        "mean": 231.224,
+        "ci95": [
+          220.91675,
+          241.45665
+        ]
+      },
+      "doc_coverage@10": {
+        "mean": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "doc_coverage@2": {
+        "mean": 0.81,
+        "ci95": [
+          0.7906666666666667,
+          0.8273499999999999
+        ]
+      },
+      "doc_coverage@20": {
+        "mean": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "doc_coverage@5": {
+        "mean": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "has_citation": {
+        "mean": 0.994,
+        "ci95": [
+          0.986,
+          1.0
+        ]
+      },
+      "mrr": {
+        "mean": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "multi_doc_citation": {
+        "mean": 0.9,
+        "ci95": [
+          0.872,
+          0.926
+        ]
+      },
+      "n_citations": {
+        "mean": 2.736,
+        "ci95": [
+          2.636,
+          2.844
+        ]
+      },
+      "n_cited_docs": {
+        "mean": 2.366,
+        "ci95": [
+          2.296,
+          2.434
+        ]
+      },
+      "ndcg@10": {
+        "mean": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "ndcg@2": {
+        "mean": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "ndcg@20": {
+        "mean": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "ndcg@5": {
+        "mean": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "support_all@10": {
+        "mean": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "support_all@2": {
+        "mean": 0.508,
+        "ci95": [
+          0.46,
+          0.55
+        ]
+      },
+      "support_all@20": {
+        "mean": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "support_all@5": {
+        "mean": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "support_precision@10": {
+        "mean": 0.2662,
+        "ci95": [
+          0.25980000000000003,
+          0.273405
+        ]
+      },
+      "support_precision@2": {
+        "mean": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "support_precision@20": {
+        "mean": 0.1331,
+        "ci95": [
+          0.12990000000000002,
+          0.1367025
+        ]
+      },
+      "support_precision@5": {
+        "mean": 0.5324,
+        "ci95": [
+          0.5196000000000001,
+          0.54681
+        ]
+      },
+      "support_recall@10": {
+        "mean": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "support_recall@2": {
+        "mean": 0.8076666666666666,
+        "ci95": [
+          0.7883333333333332,
+          0.8253333333333333
+        ]
+      },
+      "support_recall@20": {
+        "mean": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "support_recall@5": {
+        "mean": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "_latency_ms_median": 0.0,
+      "_n_queries_mean": 0
+    },
+    "ours_llm": {
+      "_description": "Our context layer with the LLM reader: free-form synthesis over multi-document context, with claim-level citations verified by the same checker as the extractive path.",
+      "abstained": {
+        "mean": 0.254,
+        "ci95": [
+          0.216,
+          0.29
+        ]
+      },
+      "all_docs@10": {
+        "mean": 0.52,
+        "ci95": [
+          0.472,
+          0.566
+        ]
+      },
+      "all_docs@2": {
+        "mean": 0.21,
+        "ci95": [
+          0.174,
+          0.246
+        ]
+      },
+      "all_docs@20": {
+        "mean": 0.612,
+        "ci95": [
+          0.568,
+          0.654
+        ]
+      },
+      "all_docs@5": {
+        "mean": 0.382,
+        "ci95": [
+          0.34,
+          0.424
+        ]
+      },
+      "answer_em": {
+        "mean": 0.372,
+        "ci95": [
+          0.33,
+          0.414
+        ]
+      },
+      "answer_f1": {
+        "mean": 0.46502733288308734,
+        "ci95": [
+          0.42335698793746745,
+          0.5047272407210579
+        ]
+      },
+      "citation_precision": {
+        "mean": 0.7010722222222223,
+        "ci95": [
+          0.6733373214285714,
+          0.72878875
+        ]
+      },
+      "citation_recall": {
+        "mean": 0.6895,
+        "ci95": [
+          0.6609958333333333,
+          0.7150374999999999
+        ]
+      },
+      "citation_validity": {
+        "mean": 0.9983333333333333,
+        "ci95": [
+          0.9963333333333333,
+          1.0
+        ]
+      },
+      "ctx_all_docs": {
+        "mean": 0.506,
+        "ci95": [
+          0.458,
+          0.552
+        ]
+      },
+      "ctx_doc_coverage": {
+        "mean": 0.7548333333333332,
+        "ci95": [
+          0.7289958333333333,
+          0.7786791666666667
+        ]
+      },
+      "ctx_n_docs": {
+        "mean": 8.432,
+        "ci95": [
+          8.299850000000001,
+          8.56605
+        ]
+      },
+      "ctx_n_passages": {
+        "mean": 8.984,
+        "ci95": [
+          8.866,
+          9.094
+        ]
+      },
+      "ctx_support_all": {
+        "mean": 0.464,
+        "ci95": [
+          0.418,
+          0.51
+        ]
+      },
+      "ctx_support_precision": {
+        "mean": 0.20476666666666665,
+        "ci95": [
+          0.19810341269841272,
+          0.21216202380952384
+        ]
+      },
+      "ctx_support_recall": {
+        "mean": 0.724,
+        "ci95": [
+          0.6964958333333333,
+          0.7496749999999999
+        ]
+      },
+      "ctx_words": {
+        "mean": 789.972,
+        "ci95": [
+          780.66305,
+          799.5377500000001
+        ]
+      },
+      "doc_coverage@10": {
+        "mean": 0.7658333333333333,
+        "ci95": [
+          0.7419916666666666,
+          0.7891708333333334
+        ]
+      },
+      "doc_coverage@2": {
+        "mean": 0.5025,
+        "ci95": [
+          0.4744958333333333,
+          0.5290041666666667
+        ]
+      },
+      "doc_coverage@20": {
+        "mean": 0.8226666666666667,
+        "ci95": [
+          0.7986624999999999,
+          0.8421666666666666
+        ]
+      },
+      "doc_coverage@5": {
+        "mean": 0.6663333333333332,
+        "ci95": [
+          0.6384833333333332,
+          0.6931708333333334
+        ]
+      },
+      "has_citation": {
+        "mean": 1.0,
+        "ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "mrr": {
+        "mean": 0.8522766636141637,
+        "ci95": [
+          0.8244332657967034,
+          0.8770882490079365
+        ]
+      },
+      "multi_doc_citation": {
+        "mean": 0.916,
+        "ci95": [
+          0.89,
+          0.938
+        ]
+      },
+      "n_citations": {
+        "mean": 3.45,
+        "ci95": [
+          3.314,
+          3.58805
+        ]
+      },
+      "n_cited_docs": {
+        "mean": 2.466,
+        "ci95": [
+          2.38795,
+          2.552
+        ]
+      },
+      "ndcg@10": {
+        "mean": 0.694699610766321,
+        "ci95": [
+          0.6712606481576473,
+          0.718122069580258
+        ]
+      },
+      "ndcg@2": {
+        "mean": 0.6337114658772453,
+        "ci95": [
+          0.6033321760457399,
+          0.6630706865151332
+        ]
+      },
+      "ndcg@20": {
+        "mean": 0.7157740003805597,
+        "ci95": [
+          0.6933905560885459,
+          0.7363811467641765
+        ]
+      },
+      "ndcg@5": {
+        "mean": 0.6515161628836043,
+        "ci95": [
+          0.6256635424232959,
+          0.6758172533624444
+        ]
+      },
+      "support_all@10": {
+        "mean": 0.488,
+        "ci95": [
+          0.444,
+          0.532
+        ]
+      },
+      "support_all@2": {
+        "mean": 0.204,
+        "ci95": [
+          0.168,
+          0.24
+        ]
+      },
+      "support_all@20": {
+        "mean": 0.586,
+        "ci95": [
+          0.538,
+          0.63
+        ]
+      },
+      "support_all@5": {
+        "mean": 0.358,
+        "ci95": [
+          0.316,
+          0.4
+        ]
+      },
+      "support_precision@10": {
+        "mean": 0.18880000000000002,
+        "ci95": [
+          0.18339500000000003,
+          0.19460000000000002
+        ]
+      },
+      "support_precision@2": {
+        "mean": 0.588,
+        "ci95": [
+          0.556975,
+          0.617
+        ]
+      },
+      "support_precision@20": {
+        "mean": 0.10270000000000001,
+        "ci95": [
+          0.10010000000000001,
+          0.1056
+        ]
+      },
+      "support_precision@5": {
+        "mean": 0.32320000000000004,
+        "ci95": [
+          0.31120000000000003,
+          0.33520000000000005
+        ]
+      },
+      "support_recall@10": {
+        "mean": 0.7471666666666666,
+        "ci95": [
+          0.7226625,
+          0.7716791666666666
+        ]
+      },
+      "support_recall@2": {
+        "mean": 0.4835,
+        "ci95": [
+          0.4543291666666666,
+          0.5113333333333333
+        ]
+      },
+      "support_recall@20": {
+        "mean": 0.8088333333333333,
+        "ci95": [
+          0.7855,
+          0.8295
+        ]
+      },
+      "support_recall@5": {
+        "mean": 0.6476666666666666,
+        "ci95": [
+          0.619325,
+          0.6741708333333333
+        ]
+      },
+      "_latency_ms_median": 380.55,
+      "_n_queries_mean": 7.856
+    }
+  },
+  "by_hop": {
+    "ctx_support_all": {
+      "closed_book_llm": {
+        "2hop": 0.0,
+        "3hop": 0.0,
+        "4hop": 0.0,
+        "all": 0.0
+      },
+      "hybrid_rerank_llm": {
+        "2hop": 0.46062992125984253,
+        "3hop": 0.19254658385093168,
+        "4hop": 0.0,
+        "all": 0.296
+      },
+      "oracle_llm": {
+        "2hop": 1.0,
+        "3hop": 1.0,
+        "4hop": 1.0,
+        "all": 1.0
+      },
+      "ours_llm": {
+        "2hop": 0.7086614173228346,
+        "3hop": 0.30434782608695654,
+        "4hop": 0.03529411764705882,
+        "all": 0.464
+      }
+    },
+    "ctx_all_docs": {
+      "closed_book_llm": {
+        "2hop": 0.0,
+        "3hop": 0.0,
+        "4hop": 0.0,
+        "all": 0.0
+      },
+      "hybrid_rerank_llm": {
+        "2hop": 0.468503937007874,
+        "3hop": 0.2546583850931677,
+        "4hop": 0.011764705882352941,
+        "all": 0.322
+      },
+      "oracle_llm": {
+        "2hop": 1.0,
+        "3hop": 1.0,
+        "4hop": 1.0,
+        "all": 1.0
+      },
+      "ours_llm": {
+        "2hop": 0.7401574803149606,
+        "3hop": 0.37888198757763975,
+        "4hop": 0.047058823529411764,
+        "all": 0.506
+      }
+    },
+    "ctx_support_recall": {
+      "closed_book_llm": {
+        "2hop": 0.0,
+        "3hop": 0.0,
+        "4hop": 0.0,
+        "all": 0.0
+      },
+      "hybrid_rerank_llm": {
+        "2hop": 0.7145669291338582,
+        "3hop": 0.660455486542443,
+        "4hop": 0.40294117647058825,
+        "all": 0.6441666666666667
+      },
+      "oracle_llm": {
+        "2hop": 1.0,
+        "3hop": 1.0,
+        "4hop": 1.0,
+        "all": 1.0
+      },
+      "ours_llm": {
+        "2hop": 0.8366141732283464,
+        "3hop": 0.6956521739130435,
+        "4hop": 0.4411764705882353,
+        "all": 0.724
+      }
+    },
+    "ctx_doc_coverage": {
+      "closed_book_llm": {
+        "2hop": 0.0,
+        "3hop": 0.0,
+        "4hop": 0.0,
+        "all": 0.0
+      },
+      "hybrid_rerank_llm": {
+        "2hop": 0.718503937007874,
+        "3hop": 0.6873706004140786,
+        "4hop": 0.4166666666666667,
+        "all": 0.6571666666666667
+      },
+      "oracle_llm": {
+        "2hop": 1.0,
+        "3hop": 1.0,
+        "4hop": 1.0,
+        "all": 1.0
+      },
+      "ours_llm": {
+        "2hop": 0.8543307086614174,
+        "3hop": 0.7515527950310559,
+        "4hop": 0.46372549019607845,
+        "all": 0.7548333333333334
+      }
+    },
+    "answer_em": {
+      "closed_book_llm": {
+        "2hop": 0.0,
+        "3hop": 0.0,
+        "4hop": 0.0,
+        "all": 0.0
+      },
+      "hybrid_rerank_llm": {
+        "2hop": 0.3228346456692913,
+        "3hop": 0.2546583850931677,
+        "4hop": 0.08235294117647059,
+        "all": 0.26
+      },
+      "oracle_llm": {
+        "2hop": 0.6062992125984252,
+        "3hop": 0.6708074534161491,
+        "4hop": 0.611764705882353,
+        "all": 0.628
+      },
+      "ours_llm": {
+        "2hop": 0.4566929133858268,
+        "3hop": 0.34782608695652173,
+        "4hop": 0.16470588235294117,
+        "all": 0.372
+      }
+    },
+    "answer_f1": {
+      "closed_book_llm": {
+        "2hop": 0.0,
+        "3hop": 0.0,
+        "4hop": 0.0,
+        "all": 0.0
+      },
+      "hybrid_rerank_llm": {
+        "2hop": 0.4083439739490299,
+        "3hop": 0.34338018738457177,
+        "4hop": 0.12932773109243698,
+        "all": 0.33999287338965356
+      },
+      "oracle_llm": {
+        "2hop": 0.7445834378878218,
+        "3hop": 0.7602306750312634,
+        "4hop": 0.6706209150326797,
+        "all": 0.7370482193626359
+      },
+      "ours_llm": {
+        "2hop": 0.572254462510368,
+        "3hop": 0.43360890039695776,
+        "4hop": 0.20411764705882354,
+        "all": 0.46502733288308734
+      }
+    }
+  },
+  "comparisons": [
+    {
+      "metric": "ctx_support_all",
+      "system": "ours_llm",
+      "baseline": "closed_book_llm",
+      "system_mean": 0.464,
+      "baseline_mean": 0.0,
+      "delta": 0.464,
+      "delta_ci95": [
+        0.42,
+        0.51
+      ],
+      "p_value": 9.999000099990002e-05,
+      "p_adjusted": 0.0011998800119988001,
+      "effect_size_d": 0.929,
+      "n": 500,
+      "significant": true
+    },
+    {
+      "metric": "ctx_support_all",
+      "system": "ours_llm",
+      "baseline": "hybrid_rerank_llm",
+      "system_mean": 0.464,
+      "baseline_mean": 0.296,
+      "delta": 0.168,
+      "delta_ci95": [
+        0.126,
+        0.214
+      ],
+      "p_value": 9.999000099990002e-05,
+      "p_adjusted": 0.0011998800119988001,
+      "effect_size_d": 0.349,
+      "n": 500,
+      "significant": true
+    },
+    {
+      "metric": "ctx_all_docs",
+      "system": "ours_llm",
+      "baseline": "closed_book_llm",
+      "system_mean": 0.506,
+      "baseline_mean": 0.0,
+      "delta": 0.506,
+      "delta_ci95": [
+        0.46,
+        0.552
+      ],
+      "p_value": 9.999000099990002e-05,
+      "p_adjusted": 0.0011998800119988001,
+      "effect_size_d": 1.011,
+      "n": 500,
+      "significant": true
+    },
+    {
+      "metric": "ctx_all_docs",
+      "system": "ours_llm",
+      "baseline": "hybrid_rerank_llm",
+      "system_mean": 0.506,
+      "baseline_mean": 0.322,
+      "delta": 0.184,
+      "delta_ci95": [
+        0.142,
+        0.228
+      ],
+      "p_value": 9.999000099990002e-05,
+      "p_adjusted": 0.0011998800119988001,
+      "effect_size_d": 0.383,
+      "n": 500,
+      "significant": true
+    },
+    {
+      "metric": "ctx_support_recall",
+      "system": "ours_llm",
+      "baseline": "closed_book_llm",
+      "system_mean": 0.724,
+      "baseline_mean": 0.0,
+      "delta": 0.724,
+      "delta_ci95": [
+        0.6968,
+        0.7505
+      ],
+      "p_value": 9.999000099990002e-05,
+      "p_adjusted": 0.0011998800119988001,
+      "effect_size_d": 2.491,
+      "n": 500,
+      "significant": true
+    },
+    {
+      "metric": "ctx_support_recall",
+      "system": "ours_llm",
+      "baseline": "hybrid_rerank_llm",
+      "system_mean": 0.724,
+      "baseline_mean": 0.6442,
+      "delta": 0.0798,
+      "delta_ci95": [
+        0.0572,
+        0.103
+      ],
+      "p_value": 9.999000099990002e-05,
+      "p_adjusted": 0.0011998800119988001,
+      "effect_size_d": 0.315,
+      "n": 500,
+      "significant": true
+    },
+    {
+      "metric": "ctx_doc_coverage",
+      "system": "ours_llm",
+      "baseline": "closed_book_llm",
+      "system_mean": 0.7548,
+      "baseline_mean": 0.0,
+      "delta": 0.7548,
+      "delta_ci95": [
+        0.7297,
+        0.7797
+      ],
+      "p_value": 9.999000099990002e-05,
+      "p_adjusted": 0.0011998800119988001,
+      "effect_size_d": 2.717,
+      "n": 500,
+      "significant": true
+    },
+    {
+      "metric": "ctx_doc_coverage",
+      "system": "ours_llm",
+      "baseline": "hybrid_rerank_llm",
+      "system_mean": 0.7548,
+      "baseline_mean": 0.6572,
+      "delta": 0.0977,
+      "delta_ci95": [
+        0.077,
+        0.1193
+      ],
+      "p_value": 9.999000099990002e-05,
+      "p_adjusted": 0.0011998800119988001,
+      "effect_size_d": 0.411,
+      "n": 500,
+      "significant": true
+    },
+    {
+      "metric": "answer_em",
+      "system": "ours_llm",
+      "baseline": "closed_book_llm",
+      "system_mean": 0.372,
+      "baseline_mean": 0.0,
+      "delta": 0.372,
+      "delta_ci95": [
+        0.33,
+        0.416
+      ],
+      "p_value": 9.999000099990002e-05,
+      "p_adjusted": 0.0011998800119988001,
+      "effect_size_d": 0.769,
+      "n": 500,
+      "significant": true
+    },
+    {
+      "metric": "answer_em",
+      "system": "ours_llm",
+      "baseline": "hybrid_rerank_llm",
+      "system_mean": 0.372,
+      "baseline_mean": 0.26,
+      "delta": 0.112,
+      "delta_ci95": [
+        0.074,
+        0.152
+      ],
+      "p_value": 9.999000099990002e-05,
+      "p_adjusted": 0.0011998800119988001,
+      "effect_size_d": 0.258,
+      "n": 500,
+      "significant": true
+    },
+    {
+      "metric": "answer_f1",
+      "system": "ours_llm",
+      "baseline": "closed_book_llm",
+      "system_mean": 0.465,
+      "baseline_mean": 0.0,
+      "delta": 0.465,
+      "delta_ci95": [
+        0.4235,
+        0.5061
+      ],
+      "p_value": 9.999000099990002e-05,
+      "p_adjusted": 0.0011998800119988001,
+      "effect_size_d": 1.012,
+      "n": 500,
+      "significant": true
+    },
+    {
+      "metric": "answer_f1",
+      "system": "ours_llm",
+      "baseline": "hybrid_rerank_llm",
+      "system_mean": 0.465,
+      "baseline_mean": 0.34,
+      "delta": 0.125,
+      "delta_ci95": [
+        0.0888,
+        0.1646
+      ],
+      "p_value": 9.999000099990002e-05,
+      "p_adjusted": 0.0011998800119988001,
+      "effect_size_d": 0.292,
+      "n": 500,
+      "significant": true
+    }
+  ],
+  "headline_table": "| System | SupAll | AllDocs | SupRec | DocCov | EM | F1 | Words | #Docs |\n|---|---|---|---|---|---|---|---|---|\n| `closed_book_llm` | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |\n| `hybrid_rerank_llm` | 29.6 | 32.2 | 64.4 | 65.7 | 26.0 | 34.0 | 756.3 | 8.1 |\n| `oracle_llm` | 100.0 | 100.0 | 100.0 | 100.0 | 62.8 | 73.7 | 231.2 | 2.6 |\n| `ours_llm` | 46.4 | 50.6 | 72.4 | 75.5 | 37.2 | 46.5 | 790.0 | 8.4 |",
+  "headline_table_ci": "| System | SupAll | AllDocs | SupRec | DocCov | EM | F1 | Words | #Docs |\n|---|---|---|---|---|---|---|---|---|\n| `closed_book_llm` | 0.0 [0.0, 0.0] | 0.0 [0.0, 0.0] | 0.0 [0.0, 0.0] | 0.0 [0.0, 0.0] | 0.0 [0.0, 0.0] | 0.0 [0.0, 0.0] | 0.0 [0.0, 0.0] | 0.0 [0.0, 0.0] |\n| `hybrid_rerank_llm` | 29.6 [25.4, 33.4] | 32.2 [28.0, 36.0] | 64.4 [62.1, 66.7] | 65.7 [63.4, 68.0] | 26.0 [22.2, 29.8] | 34.0 [30.3, 37.7] | 756.3 [745.9, 766.2] | 8.1 [7.9, 8.3] |\n| `oracle_llm` | 100.0 [100.0, 100.0] | 100.0 [100.0, 100.0] | 100.0 [100.0, 100.0] | 100.0 [100.0, 100.0] | 62.8 [58.8, 67.4] | 73.7 [70.3, 77.0] | 231.2 [220.9, 241.5] | 2.6 [2.6, 2.7] |\n| `ours_llm` | 46.4 [41.8, 51.0] | 50.6 [45.8, 55.2] | 72.4 [69.6, 75.0] | 75.5 [72.9, 77.9] | 37.2 [33.0, 41.4] | 46.5 [42.3, 50.5] | 790.0 [780.7, 799.5] | 8.4 [8.3, 8.6] |",
+  "comparison_table": "| Metric | vs baseline | Baseline | Ours | Delta | 95% CI | p (raw) | p (Holm) | d |\n|---|---|---|---|---|---|---|---|---|\n| ctx_support_all | `closed_book_llm` | 0.0 | 46.4 | +46.4 ** | [+42.0, +51.0] | 0.0001 | 0.0012 | 0.93 |\n| ctx_support_all | `hybrid_rerank_llm` | 29.6 | 46.4 | +16.8 ** | [+12.6, +21.4] | 0.0001 | 0.0012 | 0.35 |\n| ctx_all_docs | `closed_book_llm` | 0.0 | 50.6 | +50.6 ** | [+46.0, +55.2] | 0.0001 | 0.0012 | 1.01 |\n| ctx_all_docs | `hybrid_rerank_llm` | 32.2 | 50.6 | +18.4 ** | [+14.2, +22.8] | 0.0001 | 0.0012 | 0.38 |\n| ctx_support_recall | `closed_book_llm` | 0.0 | 72.4 | +72.4 ** | [+69.7, +75.1] | 0.0001 | 0.0012 | 2.49 |\n| ctx_support_recall | `hybrid_rerank_llm` | 64.4 | 72.4 | +8.0 ** | [+5.7, +10.3] | 0.0001 | 0.0012 | 0.31 |\n| ctx_doc_coverage | `closed_book_llm` | 0.0 | 75.5 | +75.5 ** | [+73.0, +78.0] | 0.0001 | 0.0012 | 2.72 |\n| ctx_doc_coverage | `hybrid_rerank_llm` | 65.7 | 75.5 | +9.8 ** | [+7.7, +11.9] | 0.0001 | 0.0012 | 0.41 |\n| answer_em | `closed_book_llm` | 0.0 | 37.2 | +37.2 ** | [+33.0, +41.6] | 0.0001 | 0.0012 | 0.77 |\n| answer_em | `hybrid_rerank_llm` | 26.0 | 37.2 | +11.2 ** | [+7.4, +15.2] | 0.0001 | 0.0012 | 0.26 |\n| answer_f1 | `closed_book_llm` | 0.0 | 46.5 | +46.5 ** | [+42.3, +50.6] | 0.0001 | 0.0012 | 1.01 |\n| answer_f1 | `hybrid_rerank_llm` | 34.0 | 46.5 | +12.5 ** | [+8.9, +16.5] | 0.0001 | 0.0012 | 0.29 |",
+  "corpus": {
+    "n_passages": 6793,
+    "n_documents": 5848,
+    "source_sha256": "15fa63794d18a94ce12411aca6e2327e65b6e83b0b1490efab3f1962e48abf3b",
+    "questions_sha256": null,
+    "selection": {
+      "n_source": 2417,
+      "n_dropped_single_doc": 54,
+      "n_eligible": 2363,
+      "n_selected": 500
+    },
+    "selection_params": {
+      "subset_size": 500,
+      "seed": 20251105,
+      "min_gold_docs": 2,
+      "stratify_by_hops": true
+    }
+  },
+  "environment": {
+    "python": "3.11.9",
+    "platform": "Windows-10-10.0.26300-SP0",
+    "machine": "AMD64",
+    "hostname": "LAPTOP-CNBPBG49",
+    "git_commit": "f027d5a98b5d8a3663ad80ba50be6e33145dd99c",
+    "torch": "2.7.0+cpu",
+    "transformers": "4.57.6",
+    "numpy": "1.26.4"
+  }
+}

@@ -187,10 +187,28 @@ def _parse(raw: str) -> dict[str, Any] | None:
 
 
 class LLMReader:
-    def __init__(self, cfg: ReaderConfig) -> None:
+    def __init__(self, cfg: ReaderConfig, cache: Any | None = None) -> None:
         self.cfg = cfg
         self.provider = get_provider(cfg)
         self.available = self.provider is not None
+        # Memoising the *raw completion* matters more here than for the local
+        # reader: an uncached re-run costs money and would make a published
+        # number depend on when it was produced. The key covers every input the
+        # completion is a function of, so a hit is exact, not approximate.
+        self.cache = cache
+
+    def _cache_key(self, question: str, context: AssembledContext) -> str | None:
+        if self.cache is None or not getattr(self.cache, "enabled", False):
+            return None
+        return self.cache.key(
+            self.cfg.llm_provider,
+            self.cfg.llm_model,
+            f"{self.cfg.llm_temperature}",
+            f"{self.cfg.llm_max_tokens}",
+            SYSTEM_PROMPT,
+            question,
+            context.render(),
+        )
 
     def read(
         self, question: str, context: AssembledContext, focus: str = "unknown"
@@ -206,7 +224,14 @@ class LLMReader:
                           meta={"reason": "empty_context"})
 
         user = f"Context:\n\n{context.render()}\n\nQuestion: {question}"
-        raw = self.provider.complete(SYSTEM_PROMPT, user, self.cfg)
+        ck = self._cache_key(question, context)
+        cached = self.cache.get(ck) if ck else None
+        if cached is not None:
+            raw = cached.get("raw", "")
+        else:
+            raw = self.provider.complete(SYSTEM_PROMPT, user, self.cfg)
+            if ck:
+                self.cache.put(ck, {"raw": raw})
         data = _parse(raw)
 
         if data is None:

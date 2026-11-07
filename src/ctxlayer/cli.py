@@ -32,6 +32,7 @@ from . import _env  # noqa: F401  (environment hardening must happen first)
 from ._sleep import keep_awake
 from .config import (
     PRESETS,
+    REPO_ROOT,
     EvalConfig,
     IngestConfig,
     PathsConfig,
@@ -115,10 +116,15 @@ def cmd_ingest(args: argparse.Namespace) -> int:
 
 
 def cmd_index(args: argparse.Namespace) -> int:
-    paths = PathsConfig()
+    paths = _paths_for(args)
     try:
         res = load_processed(paths)
     except FileNotFoundError:
+        if getattr(args, "kb", None):
+            raise SystemExit(
+                f"no processed corpus under {paths.resolve('processed_dir')}; "
+                f"--kb never ingests MuSiQue into someone else's store"
+            )
         print("no processed corpus; ingesting first")
         res = ingest_musique(_ingest_cfg(args), paths)
         save_processed(res, paths)
@@ -129,6 +135,33 @@ def cmd_index(args: argparse.Namespace) -> int:
     print(f"\nbuilt in {time.time()-t:.1f}s")
     print(json.dumps(kb.stats["index"], indent=2))
     return 0
+
+
+def _paths_for(args: argparse.Namespace) -> PathsConfig:
+    """Paths for this invocation, honouring ``--kb``.
+
+    ``--kb DIR`` points the processed corpus and its index at an alternative
+    knowledge base. It exists so a demo can run against a small hand-written
+    store (see scripts/build_demo_kb.py) WITHOUT writing into data/processed,
+    which is derived from the pinned benchmark and whose sha256 the evaluator
+    checks. Evaluation never takes this flag: `eval`, `ablate` and `report`
+    always read the real corpus.
+    """
+    kb = getattr(args, "kb", None)
+    if not kb:
+        return PathsConfig()
+    root = Path(kb)
+    if not root.is_absolute():
+        root = REPO_ROOT / root
+    if not (root / "manifest.json").exists():
+        raise SystemExit(
+            f"no knowledge base at {root}: expected manifest.json, corpus.jsonl "
+            f"and questions.jsonl.\n"
+            f"Build the demo store with:  python scripts/build_demo_kb.py"
+        )
+    # The index lives inside the store, so two knowledge bases cannot overwrite
+    # each other's index files.
+    return PathsConfig(processed_dir=str(root), index_dir=str(root / "index"))
 
 
 def _load_kb(paths: PathsConfig, cfg: SystemConfig, rebuild: bool = False):
@@ -154,7 +187,7 @@ def cmd_ask(args: argparse.Namespace) -> int:
     from .retrieve.decompose import analyze_question
     from .synth.cite import attach_evidence_chain, verify_citations
 
-    paths = PathsConfig()
+    paths = _paths_for(args)
     cfg = load_config(args.config) if args.config else PRESETS[args.system]
     res, kb = _load_kb(paths, cfg)
     kb.enable_score_cache(paths, cfg)
@@ -488,6 +521,10 @@ def build_parser() -> argparse.ArgumentParser:
         s.add_argument("--seed", type=int, default=20251105)
         s.add_argument("--min-gold-docs", type=int, default=2, dest="min_gold_docs")
         s.add_argument("--no-stratify", action="store_true")
+        if name == "index":
+            s.add_argument("--kb", default=None, metavar="DIR",
+                           help="build the index for an alternative knowledge "
+                                "base directory (e.g. data/demo)")
         s.set_defaults(func=fn)
 
     a = sub.add_parser("ask", help="answer one question with citations")
@@ -496,6 +533,9 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("--system", default="ours", choices=list(PRESETS))
     a.add_argument("--config", default=None, help="config file overriding --system")
     a.add_argument("--no-answer", action="store_true", help="context only")
+    a.add_argument("--kb", default=None, metavar="DIR",
+                   help="use an alternative knowledge base directory instead of "
+                        "data/processed (e.g. data/demo); evaluation ignores this")
     a.set_defaults(func=cmd_ask)
 
     e = sub.add_parser("eval", help="run systems -> raw outputs")

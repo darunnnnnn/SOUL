@@ -10,3 +10,4 @@ __pycache__/
 *.npz
 .qodo/
 src/ctxlayer.egg-info/
+data/demo/index/

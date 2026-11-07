@@ -305,7 +305,7 @@
           0.4671666666666666
         ]
       },
-      "_latency_ms_median": 1.0,
+      "_latency_ms_median": 0.0,
       "_n_queries_mean": 1
     },
     "closed_book": {
@@ -917,7 +917,7 @@
           0.5486666666666665
         ]
       },
-      "_latency_ms_median": 63.75,
+      "_latency_ms_median": 23.05,
       "_n_queries_mean": 1
     },
     "hybrid": {
@@ -1223,7 +1223,7 @@
           0.5516666666666666
         ]
       },
-      "_latency_ms_median": 1.5,
+      "_latency_ms_median": 1.0,
       "_n_queries_mean": 1
     },
     "hybrid_rerank": {
@@ -1529,7 +1529,7 @@
           0.6110083333333333
         ]
       },
-      "_latency_ms_median": 3.0,
+      "_latency_ms_median": 2.0,
       "_n_queries_mean": 1
     },
     "oracle": {
@@ -2141,7 +2141,7 @@
           0.6741708333333333
         ]
       },
-      "_latency_ms_median": 259.95,
+      "_latency_ms_median": 153.4,
       "_n_queries_mean": 7.856
     }
   },

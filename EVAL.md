@@ -173,11 +173,11 @@ A context-quality gain is only meaningful at equal cost. Context size per system
 | System | Mean context words | Mean distinct documents | Median latency (ms) | Mean queries issued |
 |---|---|---|---|---|
 | `closed_book` | 0 | 0.00 | 0 | 0.0 |
-| `bm25` | 746 | 8.43 | 1 | 1.0 |
-| `dense` | 784 | 7.99 | 64 | 1.0 |
-| `hybrid` | 760 | 8.08 | 2 | 1.0 |
-| `hybrid_rerank` | 756 | 8.12 | 3 | 1.0 |
-| `ours` | 790 | 8.43 | 260 | 7.9 |
+| `bm25` | 746 | 8.43 | 0 | 1.0 |
+| `dense` | 784 | 7.99 | 23 | 1.0 |
+| `hybrid` | 760 | 8.08 | 1 | 1.0 |
+| `hybrid_rerank` | 756 | 8.12 | 2 | 1.0 |
+| `ours` | 790 | 8.43 | 153 | 7.9 |
 | `oracle` | 231 | 2.65 | 0 | 0.0 |
 
 The latency column above is measured with the cross-encoder and query-embedding caches **warm**, since those caches are what make a 22-ablation sweep affordable. That is the amortised cost inside a sweep, not the cost of a fresh user query, so cold-cache latency is reported separately.
@@ -224,21 +224,86 @@ This is where an iterative context layer should and does separate from single-sh
 | `ours` | 20.1 | 26.1 | 2.4 | 19.0 |
 | `oracle` | 37.4 | 43.5 | 20.0 | 36.4 |
 
-## 5. Ablations
+### Synthesis with an LLM reader
 
-> **These ablations are stale.** They were produced at commit `0c4cbc2`, while the headline table in section 4 comes from `ad7933e`. A change between those commits may have altered the components measured here, so the deltas below describe an earlier version of the system and are not comparable to section 4. Re-run `python -m ctxlayer.cli ablate` to refresh them.
+The table above fixes a local extractive reader (`deepset/roberta-base-squad2`), which selects one span from one passage. It cannot combine facts across passages, and its `oracle` row shows the cost: handed perfect documents it still scores only 36.4 EM. A retrieval gain therefore has little room to appear in `EM`/`F1`, and on held-out questions it did not reach significance (EM +2.6, Holm p=0.36).
+
+This table replaces **only** the reader, with `gpt-4.1-mini-2025-04-14` at temperature 0.0 -- a dated snapshot, so the numbers name the model that produced them. Retrieval, assembly, budget, questions and metrics are unchanged. Four systems are reported rather than one, because a row for our system alone would support no claim.
+
+| System | SupAll | AllDocs | SupRec | DocCov | EM | F1 | Words | #Docs |
+|---|---|---|---|---|---|---|---|---|
+| `closed_book_llm` | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
+| `hybrid_rerank_llm` | 29.6 | 32.2 | 64.4 | 65.7 | 26.0 | 34.0 | 756.3 | 8.1 |
+| `ours_llm` | 46.4 | 50.6 | 72.4 | 75.5 | 37.2 | 46.5 | 790.0 | 8.4 |
+| `oracle_llm` | 100.0 | 100.0 | 100.0 | 100.0 | 62.8 | 73.7 | 231.2 | 2.6 |
+
+| Metric | vs baseline | Baseline | Ours | Delta | 95% CI | p (raw) | p (Holm) | d |
+|---|---|---|---|---|---|---|---|---|
+| ctx_support_all | `closed_book_llm` | 0.0 | 46.4 | +46.4 ** | [+42.0, +51.0] | 0.0001 | 0.0012 | 0.93 |
+| ctx_support_all | `hybrid_rerank_llm` | 29.6 | 46.4 | +16.8 ** | [+12.6, +21.4] | 0.0001 | 0.0012 | 0.35 |
+| ctx_all_docs | `closed_book_llm` | 0.0 | 50.6 | +50.6 ** | [+46.0, +55.2] | 0.0001 | 0.0012 | 1.01 |
+| ctx_all_docs | `hybrid_rerank_llm` | 32.2 | 50.6 | +18.4 ** | [+14.2, +22.8] | 0.0001 | 0.0012 | 0.38 |
+| ctx_support_recall | `closed_book_llm` | 0.0 | 72.4 | +72.4 ** | [+69.7, +75.1] | 0.0001 | 0.0012 | 2.49 |
+| ctx_support_recall | `hybrid_rerank_llm` | 64.4 | 72.4 | +8.0 ** | [+5.7, +10.3] | 0.0001 | 0.0012 | 0.31 |
+| ctx_doc_coverage | `closed_book_llm` | 0.0 | 75.5 | +75.5 ** | [+73.0, +78.0] | 0.0001 | 0.0012 | 2.72 |
+| ctx_doc_coverage | `hybrid_rerank_llm` | 65.7 | 75.5 | +9.8 ** | [+7.7, +11.9] | 0.0001 | 0.0012 | 0.41 |
+| answer_em | `closed_book_llm` | 0.0 | 37.2 | +37.2 ** | [+33.0, +41.6] | 0.0001 | 0.0012 | 0.77 |
+| answer_em | `hybrid_rerank_llm` | 26.0 | 37.2 | +11.2 ** | [+7.4, +15.2] | 0.0001 | 0.0012 | 0.26 |
+| answer_f1 | `closed_book_llm` | 0.0 | 46.5 | +46.5 ** | [+42.3, +50.6] | 0.0001 | 0.0012 | 1.01 |
+| answer_f1 | `hybrid_rerank_llm` | 34.0 | 46.5 | +12.5 ** | [+8.9, +16.5] | 0.0001 | 0.0012 | 0.29 |
+
+Held out (n = 350, the same filter as above):
+
+| System | SupAll | AllDocs | SupRec | DocCov | EM | F1 | Words | #Docs |
+|---|---|---|---|---|---|---|---|---|
+| `closed_book_llm` | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
+| `hybrid_rerank_llm` | 21.4 | 24.9 | 60.9 | 62.6 | 23.1 | 30.7 | 772.4 | 7.9 |
+| `ours_llm` | 34.0 | 38.9 | 66.4 | 70.3 | 34.0 | 41.4 | 795.8 | 8.3 |
+| `oracle_llm` | 100.0 | 100.0 | 100.0 | 100.0 | 65.7 | 74.4 | 260.0 | 2.9 |
+
+| Metric | vs baseline | Baseline | Ours | Delta | 95% CI | p (raw) | p (Holm) | d |
+|---|---|---|---|---|---|---|---|---|
+| ctx_support_all | `closed_book_llm` | 0.0 | 34.0 | +34.0 ** | [+29.1, +38.9] | 0.0001 | 0.0012 | 0.72 |
+| ctx_support_all | `hybrid_rerank_llm` | 21.4 | 34.0 | +12.6 ** | [+8.0, +17.1] | 0.0001 | 0.0012 | 0.28 |
+| ctx_all_docs | `closed_book_llm` | 0.0 | 38.9 | +38.9 ** | [+33.7, +43.7] | 0.0001 | 0.0012 | 0.80 |
+| ctx_all_docs | `hybrid_rerank_llm` | 24.9 | 38.9 | +14.0 ** | [+9.4, +18.9] | 0.0001 | 0.0012 | 0.31 |
+| ctx_support_recall | `closed_book_llm` | 0.0 | 66.4 | +66.4 ** | [+63.5, +69.5] | 0.0001 | 0.0012 | 2.32 |
+| ctx_support_recall | `hybrid_rerank_llm` | 60.9 | 66.4 | +5.5 ** | [+3.2, +8.0] | 0.0001 | 0.0012 | 0.24 |
+| ctx_doc_coverage | `closed_book_llm` | 0.0 | 70.3 | +70.3 ** | [+67.4, +73.1] | 0.0001 | 0.0012 | 2.56 |
+| ctx_doc_coverage | `hybrid_rerank_llm` | 62.6 | 70.3 | +7.7 ** | [+5.4, +10.0] | 0.0001 | 0.0012 | 0.35 |
+| answer_em | `closed_book_llm` | 0.0 | 34.0 | +34.0 ** | [+29.1, +39.1] | 0.0001 | 0.0012 | 0.72 |
+| answer_em | `hybrid_rerank_llm` | 23.1 | 34.0 | +10.9 ** | [+6.9, +15.4] | 0.0001 | 0.0012 | 0.26 |
+| answer_f1 | `closed_book_llm` | 0.0 | 41.4 | +41.4 ** | [+36.6, +46.0] | 0.0001 | 0.0012 | 0.90 |
+| answer_f1 | `hybrid_rerank_llm` | 30.7 | 41.4 | +10.7 ** | [+6.6, +15.1] | 0.0001 | 0.0012 | 0.26 |
+
+Three things make this table interpretable rather than a demonstration that large models know trivia:
+
+* **`hybrid_rerank_llm` holds the reader fixed.** The strongest single-shot baseline, same budget, same model, same prompt, so the gap to `ours_llm` is attributable to retrieval, not generation.
+
+* **`closed_book_llm` is the leakage control.** Same model and prompt, no context at all. It scores 0.0 and abstains on every question, so nothing here is carried by parametric memory. Stated precisely: that shows the grounding instruction is obeyed, not that the model is ignorant of these facts -- the prompt directs abstention when the context is insufficient, and it complies.
+
+* **`oracle_llm` bounds synthesis error** as `oracle` bounds reading error in the headline table.
+
+Every citation here is checked by the verifier the extractive path uses: the anchor must resolve to a real location and its text must still match the source bytes. A model-emitted citation is not trusted because a model emitted it.
+
+## 5. Ablations
 
 Each ablation is the `ours` config with **exactly one field changed** (`SystemConfig.replace` raises on an unknown field, and `tests/test_pipeline.py::test_ablation_is_a_single_field_delta` asserts the delta is single-field). Run on **n = 150** questions -- the development split, so that any design decision informed by this table leaves the held-out split in section 4 untouched. Sorted by damage to `AllDocs`.
 
 | Ablation | What changed | AllDocs | d(AllDocs) | SupAll | EM | Words |
 |---|---|---|---|---|---|---|
-| **`ours` (full)** | -- | **60.7** | -- | **59.3** | **15.3** | 739 |
-| `no_iterative` | `iterative.enabled=False` | 48.0 | -12.7 | 47.3 | 11.3 | 716 |
-| `no_rerank` | `rerank.enabled=False` | 48.7 | -12.0 | 46.0 | 16.7 | 752 |
-| `no_graph` | `iterative.use_graph=False` | 60.7 | +0.0 | 59.3 | 16.0 | 775 |
-| `no_assembly` | `assemble.enabled=False` | 61.3 | +0.7 | 59.3 | 17.3 | 737 |
+| **`ours` (full)** | -- | **78.0** | -- | **75.3** | **24.0** | 776 |
+| `no_iterative` | `iterative.enabled=False` | 48.0 | -30.0 | 47.3 | 11.3 | 716 |
+| `no_reach_gate` | `iterative.min_entity_df=1` | 61.3 | -16.7 | 60.7 | 16.0 | 738 |
+| `no_rerank` | `rerank.enabled=False` | 63.3 | -14.7 | 58.7 | 18.0 | 767 |
+| `no_query_rewrite` | `iterative.use_query_rewrite=False` | 69.3 | -8.7 | 67.3 | 22.0 | 779 |
+| `no_graph` | `iterative.use_graph=False` | 73.3 | -4.7 | 71.3 | 23.3 | 772 |
+| `no_adaptive_stop` | `iterative.gain_threshold=0.0` | 75.3 | -2.7 | 74.0 | 24.0 | 791 |
+| `no_assembly` | `assemble.enabled=False` | 78.0 | +0.0 | 74.7 | 24.0 | 763 |
+| `no_barren_stop` | `iterative.max_barren_rounds=99` | 78.0 | +0.0 | 75.3 | 24.0 | 776 |
+| `no_frontier_floor` | `iterative.min_frontier_rel=0.0` | 78.0 | +0.0 | 75.3 | 24.0 | 775 |
 
-The most damaging single change is **`no_iterative`** (-12.7 points of `AllDocs`), which is the empirical argument for that component existing.
+The most damaging single change is **`no_iterative`** (-30.0 points of `AllDocs`), which is the empirical argument for that component existing.
 
 ### How much gold evidence is reachable only by a bridge
 
@@ -379,7 +444,7 @@ python -m ctxlayer.cli report  --setting unified --write-md
 | transformers | `4.57.6` |
 | numpy | `1.26.4` |
 | platform | `Windows-10-10.0.26300-SP0` |
-| git_commit | `ad7933e33490cbb07c68f1734f64be67e91b35eb` |
+| git_commit | `b16cc5a1f290a7f042eafffd54a50ba4783e4edb` |
 
 Results are CPU-deterministic given the same seeds and library versions. Small differences across machines are possible from floating-point reduction order in the encoders; the retrieval metrics are integer-valued set comparisons and are robust to that.
 

@@ -21,7 +21,9 @@ dependencies = [
 
 [project.optional-dependencies]
 # Only needed for the optional LLM synthesis path (reader.kind = "llm").
-llm = ["anthropic>=0.40", "openai>=1.40"]
+# openai<1.68 passes `proxies=` to httpx, which httpx>=0.28 rejected;
+# the client then fails to construct at all.
+llm = ["anthropic>=0.40", "openai>=1.68"]
 dev = ["pytest>=7.4"]
 
 [project.scripts]

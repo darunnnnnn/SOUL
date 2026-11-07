@@ -611,12 +611,66 @@ def _presets() -> dict[str, SystemConfig]:
         "multi-document context assembly.",
     )
 
+    # --- LLM-reader variants ------------------------------------------------
+    #
+    # A second, self-contained table. The extractive table stays the headline
+    # because it cannot answer from parametric memory, so every point it scores
+    # is attributable to retrieved evidence. These rows answer the different
+    # question the assignment also asks -- whether the assembled context
+    # supports *synthesis*: a written answer that combines evidence from
+    # several documents, with a citation on each claim.
+    #
+    # Four rows, not one, because a table with only `ours_llm` would be
+    # uninterpretable. `closed_book_llm` measures what the model already knows
+    # with no context at all, which is the leakage control and the floor that
+    # any context-dependent claim must clear. `hybrid_rerank_llm` holds the
+    # reader fixed while varying only retrieval, so the comparison against
+    # `ours_llm` isolates the context layer rather than the reader. `oracle_llm`
+    # bounds what this reader can do given perfect evidence, the same role the
+    # extractive `oracle` plays in the headline table.
+    _llm = {
+        "reader.kind": "llm",
+        "reader.llm_provider": "openai",
+        # Pinned to a dated snapshot: an alias like "gpt-4.1-mini" silently
+        # changes under you, and a published number must name the exact model
+        # that produced it.
+        "reader.llm_model": "gpt-4.1-mini-2025-04-14",
+        "reader.llm_temperature": 0.0,
+    }
+    p["closed_book_llm"] = p["closed_book"].replace(
+        name="closed_book_llm",
+        description="LLM reader, no retrieval. Measures how much of the "
+        "benchmark the model answers from parametric memory alone; the floor "
+        "every LLM-reader row must be compared against.",
+        **_llm,
+    )
+    p["hybrid_rerank_llm"] = p["hybrid_rerank"].replace(
+        name="hybrid_rerank_llm",
+        description="Strongest single-shot baseline with the LLM reader. "
+        "Holds the reader fixed so the gap to ours_llm is attributable to "
+        "retrieval, not to generation.",
+        **_llm,
+    )
+    p["ours_llm"] = p["ours"].replace(
+        name="ours_llm",
+        description="Our context layer with the LLM reader: free-form "
+        "synthesis over multi-document context, with claim-level citations "
+        "verified by the same checker as the extractive path.",
+        **_llm,
+    )
+
     # --- Oracle: gold supporting paragraphs. Reader-ceiling reference. ---
     p["oracle"] = _base().replace(
         name="oracle",
         description="Gold supporting paragraphs only. Upper bound given the "
         "fixed reader; separates retrieval error from reading error.",
         mode="oracle",
+    )
+    p["oracle_llm"] = p["oracle"].replace(
+        name="oracle_llm",
+        description="Gold paragraphs with the LLM reader. Upper bound for the "
+        "LLM table, separating retrieval error from synthesis error.",
+        **_llm,
     )
     return p
 

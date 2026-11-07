@@ -6,7 +6,18 @@ torch==2.7.0
 transformers==4.57.6
 numpy==1.26.4
 
-# Optional, only for the LLM synthesis path (reader.kind = "llm"):
+# The LLM synthesis path (reader.kind = "llm") now produces published numbers
+# -- the second results table in EVAL.md -- so its client is pinned here too.
+#
+# The lower bound matters. openai<=1.5x constructs its transport with a
+# `proxies=` argument that httpx removed in 0.28, so an otherwise valid
+# install fails at client construction with
+#   TypeError: Client.__init__() got an unexpected keyword argument 'proxies'
+# before any request is made. 1.68 is the first release that works against the
+# httpx pinned below.
+openai==3.46.0
+httpx==0.28.1
+
+# Optional, only for the other LLM providers:
 # anthropic>=0.40
-# openai>=1.40
 # google-generativeai>=0.3

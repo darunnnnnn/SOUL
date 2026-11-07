@@ -321,10 +321,24 @@ class IterativeConfig(_Base):
     # -> "manichaeism" -> "golfo de mexico", reaching none of its four gold
     # documents. Scored on `rel_norm`, which is hop-independent, rather than
     # `chain`, which decays with depth.
+    #
+    # MEASURED: 0.0 points of AllDocs on the 150-question dev split
+    # (`no_frontier_floor`). The drift it was written to stop is real and was
+    # observed, but the reachability gate above already removes most of the
+    # bridges that caused it, so by the time this fires there is little left
+    # for it to catch. Kept because it is cheap and bounds a genuine failure
+    # mode, not because it earned its place empirically -- the ablation table
+    # says so plainly rather than letting three gates share credit that one
+    # of them earned.
     min_frontier_rel: float = 0.25
     # Stop after this many *consecutive* rounds that add no new passage.
     # Without it a barren round only `continue`s, so a search that has clearly
     # run out of reachable evidence still pays for every remaining round.
+    #
+    # MEASURED: 0.0 points of AllDocs on the dev split (`no_barren_stop`).
+    # It is a compute guard, not a quality one: with the reachability gate in
+    # place, rounds that add nothing are rare, so stopping early saves work
+    # without changing what is retrieved.
     max_barren_rounds: int = 2
     # Max beam slots one frontier passage may supply in a round.
     #

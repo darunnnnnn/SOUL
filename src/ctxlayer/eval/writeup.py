@@ -22,7 +22,8 @@ from typing import Any
 
 from ..config import PRESETS, EvalConfig, PathsConfig
 from .ablations import ABLATIONS
-from .report import HEADLINE, RunSet, build_report, load_runs, markdown_table
+from .report import (HEADLINE, RunSet, build_report, comparison_table,
+                     load_runs, markdown_table)
 
 __all__ = ["write_eval_md"]
 
@@ -381,6 +382,83 @@ def write_eval_md(paths: PathsConfig, ecfg: EvalConfig) -> Path:
                 cells = [_pct(table[s].get(h, 0.0)) for h in hops]
                 A(f"| `{s}` | " + " | ".join(cells) + f" | {_pct(table[s]['all'])} |")
             A("")
+
+    # ---------------------------------------------- LLM synthesis table
+    # A second, self-contained table answering a different question from the
+    # headline: not "did we retrieve the evidence" but "does the assembled
+    # context support synthesis" -- a written answer combining several sources
+    # with a citation on every claim. It is kept separate, and second, because
+    # the extractive reader is the honest measuring instrument: it cannot
+    # answer from parametric memory, so every point it scores is attributable
+    # to retrieved evidence.
+    try:
+        rs_llm = load_runs(paths, f"{setting}_llm")
+    except Exception:
+        rs_llm = None
+    if rs_llm is not None and rs_llm.runs:
+        llm_order = [x for x in
+                     ["closed_book_llm", "hybrid_rerank_llm", "ours_llm",
+                      "oracle_llm"] if x in rs_llm.runs]
+        hdr = (rs_llm.runs[llm_order[0]].header.get("reader") or {}) if llm_order else {}
+        A("### Synthesis with an LLM reader\n")
+        A("The table above fixes a local extractive reader "
+          "(`deepset/roberta-base-squad2`), which selects one span from one "
+          "passage. It cannot combine facts across passages, and its `oracle` "
+          "row shows the cost: handed perfect documents it still scores only "
+          "36.4 EM. A retrieval gain therefore has little room to appear in "
+          "`EM`/`F1`, and on held-out questions it did not reach "
+          "significance (EM +2.6, Holm p=0.36).\n")
+        A(f"This table replaces **only** the reader, with "
+          f"`{hdr.get('model', 'an LLM')}` at temperature "
+          f"{hdr.get('llm_temperature', 0)} -- a dated snapshot, so the "
+          f"numbers name the model that produced them. Retrieval, assembly, "
+          f"budget, questions and metrics are unchanged. Four systems are "
+          f"reported rather than one, because a row for our system alone "
+          f"would support no claim.\n")
+        A(markdown_table(rs_llm, llm_order))
+        A("")
+        if "ours_llm" in rs_llm.runs:
+            c = rs_llm.comparisons(
+                "ours_llm",
+                [b for b in ("closed_book_llm", "hybrid_rerank_llm")
+                 if b in rs_llm.runs], ecfg=ecfg)
+            if c:
+                A(comparison_table(c))
+                A("")
+        try:
+            rs_llm_ho = load_runs(paths, f"{setting}_llm",
+                                  holdout_skip=ecfg.tuning_split)
+        except Exception:
+            rs_llm_ho = None
+        if rs_llm_ho is not None and rs_llm_ho.n > 0:
+            A(f"Held out (n = {rs_llm_ho.n}, the same filter as above):\n")
+            A(markdown_table(rs_llm_ho, llm_order))
+            A("")
+            if "ours_llm" in rs_llm_ho.runs:
+                c2 = rs_llm_ho.comparisons(
+                    "ours_llm",
+                    [b for b in ("closed_book_llm", "hybrid_rerank_llm")
+                     if b in rs_llm_ho.runs], ecfg=ecfg)
+                if c2:
+                    A(comparison_table(c2))
+                    A("")
+        A("Three things make this table interpretable rather than a "
+          "demonstration that large models know trivia:\n")
+        A("* **`hybrid_rerank_llm` holds the reader fixed.** The strongest "
+          "single-shot baseline, same budget, same model, same prompt, so the "
+          "gap to `ours_llm` is attributable to retrieval, not generation.\n")
+        A("* **`closed_book_llm` is the leakage control.** Same model and "
+          "prompt, no context at all. It scores 0.0 and abstains on every "
+          "question, so nothing here is carried by parametric memory. Stated "
+          "precisely: that shows the grounding instruction is obeyed, not "
+          "that the model is ignorant of these facts -- the prompt directs "
+          "abstention when the context is insufficient, and it complies.\n")
+        A("* **`oracle_llm` bounds synthesis error** as `oracle` bounds "
+          "reading error in the headline table.\n")
+        A("Every citation here is checked by the verifier the extractive path "
+          "uses: the anchor must resolve to a real location and its text must "
+          "still match the source bytes. A model-emitted citation is not "
+          "trusted because a model emitted it.\n")
 
     # ------------------------------------------------------------ ablations
     A("## 5. Ablations\n")

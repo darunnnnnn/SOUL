@@ -227,12 +227,12 @@ Grouped bar chart. This shows where the method wins and where it breaks.
 
 ### LIMITATION - full section, same visual weight as the wins
 
-On 4-hop questions AllDocs is 4.7%. Partial coverage is 41% - it finds some
+On 4-hop questions AllDocs is 4.7%. Partial coverage is 46.4% - it finds some
 of the chain and rarely all of it. Three consecutive bridges compound
 per-hop error.
 
 I tried a beam-diversity fix. Held-out results got WORSE: AllDocs -3.1
-points, p = 0.030. I reverted it and kept the negative result.
+points, p = 0.026. I reverted it and kept the negative result.
 
 Show the -3.1 as a bar going the wrong way. Not a footnote, not a collapsed
 accordion, not greyed out. A reader must not be able to miss it.

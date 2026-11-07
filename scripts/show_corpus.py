@@ -2,12 +2,14 @@
 
 Usage:
     python scripts/show_corpus.py                       # the whole knowledge base
+    python scripts/show_corpus.py --titles                    # a random sample of titles
     python scripts/show_corpus.py --qid 2hop__130668_126089   # one question's documents
 """
 from __future__ import annotations
 
 import argparse
 import json
+import random
 from collections import Counter
 from pathlib import Path
 
@@ -74,6 +76,24 @@ def show_split(man: dict, corpus: list[dict]) -> None:
     print("  (the evaluator refuses to run if either changes)")
 
 
+def show_titles(corpus: list[dict], k: int = 12, seed: int = 2026) -> None:
+    rule("A RANDOM SAMPLE OF THE DOCUMENTS")
+    docs = {}
+    for p in corpus:
+        docs.setdefault(p["doc_id"], p["doc_title"])
+    titles = sorted(docs.values())
+    print(f"  {len(titles)} documents, {len(set(titles))} distinct titles -- every document")
+    print("  is a separate Wikipedia article. They are not chapters of one")
+    print("  source and they share no common subject:")
+    print()
+    for t in random.Random(seed).sample(titles, k):
+        print(f"    - {t}")
+    print()
+    print("  Nothing in the corpus says which of these belong together.")
+    print("  There is no link structure to follow and no table of contents.")
+    print("  Connections have to be discovered from the text itself.")
+
+
 def show_examples(corpus: list[dict], n: int = 2) -> None:
     rule("3. WHAT ONE DOCUMENT ACTUALLY LOOKS LIKE")
     by_doc: dict[str, list[dict]] = {}
@@ -127,6 +147,7 @@ def show_question(corpus: list[dict], questions: list[dict], qid: str) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--qid", default=None, help="show the documents for one question")
+    ap.add_argument("--titles", action="store_true", help="print a random sample of document titles")
     args = ap.parse_args()
 
     man = json.loads((PROC / "manifest.json").read_text(encoding="utf-8"))
@@ -136,8 +157,14 @@ def main() -> int:
         show_question(corpus, load("questions.jsonl"), args.qid)
         return 0
 
+    if args.titles:
+        show_titles(corpus)
+        print()
+        return 0
+
     show_provenance(man)
     show_split(man, corpus)
+    show_titles(corpus)
     show_examples(corpus)
     print()
     print("  Verify every anchor re-resolves to byte-identical source text:")

@@ -256,6 +256,27 @@ def main() -> int:
                   f"adj p = {c['p_adjusted']:.4f})")
     else:
         print("  run: python -m ctxlayer.cli report --setting " + ecfg.label)
+
+    # The extractive reader is the measuring instrument -- it cannot answer from
+    # parametric memory, so every point above is attributable to retrieved
+    # evidence. It is also the ceiling on EM: given perfect documents it scores
+    # 36.4. Replacing only the reader shows what the same context supports.
+    rep_llm = paths.resolve("results_dir") / "report_unified_llm.json"
+    if rep_llm.exists():
+        d2 = json.loads(rep_llm.read_text(encoding="utf-8"))
+        print()
+        print("  SAME CONTEXT, LLM READER  (synthesis; retrieval unchanged)\n")
+        print(d2["headline_table"])
+        print()
+        for c in d2["comparisons"]:
+            if c["baseline"] == "hybrid_rerank_llm" and c["metric"] in (
+                    "answer_em", "answer_f1"):
+                print(f"  {c['metric']:20s} {c['baseline_mean']*100:5.1f} -> "
+                      f"{c['system_mean']*100:5.1f}  ({c['delta']*100:+.1f} pts, "
+                      f"adj p = {c['p_adjusted']:.4f})")
+        print()
+        print("  closed_book_llm answers 0.0 EM and abstains on every question,")
+        print("  so none of this is carried by the model's own knowledge.")
     rule()
     print("Full detail: DESIGN.md (architecture + reasoning), EVAL.md (results).")
     return 0

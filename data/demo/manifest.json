@@ -1,0 +1,36 @@
+{
+  "dataset": "demo-handwritten",
+  "split": "demo",
+  "source_file": "scripts/build_demo_kb.py",
+  "source_sha256": "3460126e0e6df4059c0cfcb4a6c6e78917454f60287bda9b245f6d21fc3e759f",
+  "purpose": "Demonstration only. Never evaluated, never reported, and deliberately separate from data/processed so the pinned benchmark corpus cannot be contaminated.",
+  "selection": {
+    "n_source": 45,
+    "n_dropped_single_doc": 0,
+    "n_eligible": 45,
+    "n_selected": 2
+  },
+  "selection_params": {
+    "subset_size": 2,
+    "seed": 0,
+    "min_gold_docs": 2,
+    "stratify_by_hops": false
+  },
+  "n_questions": 2,
+  "n_passages": 45,
+  "n_documents": 45,
+  "n_anchors": 123,
+  "hop_type_hist": {
+    "2hop": 1,
+    "3hop1": 1
+  },
+  "gold_docs_per_question_hist": {
+    "2": 1,
+    "3": 1
+  },
+  "mean_passage_words": 38.64,
+  "mean_gold_passages": 2.5,
+  "mean_gold_docs": 2.5,
+  "corpus_sha256": "12babba0aee26ba66fef66dbae85d59460e65dcdec8fb99bf61d23e8e4afaaaa",
+  "questions_sha256": "3b8f947df4a78d5b5f5c0201bd99fab508daa7ec3ffb3e8e6cba67733f6d5a68"
+}

@@ -1,9 +1,9 @@
 # SOUL — recording script
 
-9:00 of speech at a normal pace, measured, plus roughly 1:15 of command
-runtime on screen. Unedited that lands at about 10:15, which is over the
-10:00 ceiling — see Timing at the end. Trimming the dead air while commands
-run brings it comfortably inside, and costs nothing.
+9:16 of speech at a normal pace, measured, plus about 70 seconds of command
+runtime. Unedited that lands near 10:25, over the 10:00 ceiling — see Timing
+at the end. Cutting the dead air while commands print brings it to roughly
+9:15 and costs nothing.
 
 Every command is real and has been run. Every number is from a committed
 artefact. The narration is deliberately terse — the page and the terminal are
@@ -14,9 +14,9 @@ doing the explaining, and anything you add on top comes out of your margin.
 ```powershell
 $env:OPENAI_API_KEY = "sk-proj-..."
 python scripts/show_corpus.py
-python scripts/show_corpus.py --qid 2hop__130668_126089
-python -m ctxlayer.cli ask "Who was in charge of the state where Graft-De Rijp is located?" --system hybrid_rerank
-python -m ctxlayer.cli ask "Who was in charge of the state where Graft-De Rijp is located?" --system ours_llm
+python scripts/show_corpus.py --qid 2hop__95773_51329
+python -m ctxlayer.cli ask --qid 2hop__95773_51329 --system hybrid_rerank
+python -m ctxlayer.cli ask --qid 2hop__95773_51329 --system ours_llm
 ```
 
 Run all five once to warm the caches — cold start is ~60s of silence, warm is
@@ -133,12 +133,11 @@ Open in tabs: the artifact page, `EVAL.md` at §5, the GitHub repo.
 
 ### Frame 12
 
-> Cambridge, with three citations — document, passage, sentence. The byte
-> offsets are re-resolved against the source and compared character by
-> character, and mismatches are rejected. Across the corpus that's 24,064
-> anchors with zero failures.
+> Cambridge, with three citations — document, passage, sentence. Those byte
+> offsets get re-checked against the source, character by character. Across
+> the real corpus that's 24,064 anchors with zero failures.
 >
-> Side by side: one query against three, one document against three.
+> One query against three. One document against three.
 
 ### The panel below
 
@@ -148,16 +147,15 @@ Open in tabs: the artifact page, `EVAL.md` at §5, the GitHub repo.
 
 ---
 
-# 3 · Architecture — 3:45–4:25
+# 3 · Architecture — 3:45–4:20
 
 **ON SCREEN** Artifact page, Architecture tab.
 
 > The whole system. Documents split into passages, passages into sentence
-> anchors with byte offsets. Three indexes in parallel — BM25F, dense, and
-> the mention index. Retrieval fuses lexical and dense and reranks with a
-> cross-encoder, and that stage alone is the strongest baseline. This is the
-> loop, the only stage that cycles. Then assembly under a word budget, then
-> the reader and citation checking.
+> anchors. Three indexes in parallel — lexical, dense, and the mention index.
+> Retrieval fuses the first two and reranks, and that stage alone is the
+> strongest baseline. This is the loop — the only stage that cycles. Then
+> assembly under a budget, then the reader and citation checking.
 
 **Point at the matrix:**
 
@@ -167,7 +165,7 @@ Open in tabs: the artifact page, `EVAL.md` at §5, the GitHub repo.
 
 ---
 
-# 4 · The knowledge base — 4:25–5:40
+# 4 · The knowledge base — 4:20–5:30
 
 **ON SCREEN** Terminal.
 
@@ -188,57 +186,65 @@ python scripts/show_corpus.py
 
 **Scroll down:**
 
-> 5,848 documents, 6,793 passages, 24,064 anchors. The document is what
-> multi-document evidence is counted over, the passage is what retrieval
-> ranks, and the anchor is the sentence a citation points at.
+> 5,848 documents, 6,793 passages, 24,064 anchors — the document is what
+> evidence is counted over, the anchor is what a citation points at.
 >
-> And these are the titles — a treaty, a footballer, a fighter aircraft.
-> Unrelated articles with no link structure between them.
+> And the titles: a treaty, a footballer, a fighter aircraft. Unrelated
+> articles with no link structure between them.
 
 ---
 
-# 5 · Live demonstration — 5:40–7:45
+# 5 · Live demonstration — 5:30–8:00
 
 ```powershell
-python scripts/show_corpus.py --qid 2hop__130668_126089
+python scripts/show_corpus.py --qid 2hop__95773_51329
 ```
 
-> A real question: who was in charge of the state where Graft-De Rijp is
-> located? It needs two of those 5,848 documents.
+> A real benchmark question: what movie did the person who acted in the
+> comedy film Crime School win his only Oscar for?
 >
-> Same shape as the Microsoft chain, one link shorter. The question says
-> "Graft-De Rijp" and never says "North Holland", but Johan Remkes only
-> appears in the North Holland document.
+> Two documents. Crime School, which tells you Humphrey Bogart was in it. And
+> the Bogart article, which tells you he won one Oscar, for The African
+> Queen.
+>
+> Same shape as the Microsoft chain: the question says "Crime School" and
+> never says "Humphrey Bogart". That name exists only inside the first
+> document.
 
 ```powershell
-python -m ctxlayer.cli ask "Who was in charge of the state where Graft-De Rijp is located?" --system hybrid_rerank
+python -m ctxlayer.cli ask --qid 2hop__95773_51329 --system hybrid_rerank
 ```
 
 > The strong baseline — BM25, dense, cross-encoder reranker. One query.
 >
-> And it retrieved *The Case Against Brooklyn*, a 1958 film noir, on the word
-> "graft" — political graft. The answer is Alkmaar, which is wrong, and it
-> found one of the two documents.
+> It found Crime School. Then look at the rest: Fred Gwynne, The Omen, the
+> 70th Academy Awards, the 84th, The King's Speech, Matt Damon's nominations.
 >
-> That's not a weak baseline failing. It's a well-built one hitting a wall it
-> can't get past.
+> It understood the question perfectly. It knew this was about Oscars, so it
+> fetched Oscars. What it never found was Humphrey Bogart — the question
+> doesn't contain his name, and nothing else would lead it there.
+>
+> One of two documents, and it abstains rather than answer.
 
 ```powershell
-python -m ctxlayer.cli ask "Who was in charge of the state where Graft-De Rijp is located?" --system ours_llm
+python -m ctxlayer.cli ask --qid 2hop__95773_51329 --system ours_llm
 ```
 
-> Same question, SOUL. Thirteen queries instead of one.
+> Same question, SOUL. Nine queries instead of one.
 >
-> And in that list — "north holland charge state located". That query
-> couldn't have come from the question. It was built from an entity inside a
-> passage already retrieved.
+> At the top of the bridge list — "humphrey bogart". It read the Crime School
+> passage, pulled the name out, and built this query: "humphrey bogart movie
+> person acted comedy film win only".
 >
-> Answer: Johan Remkes. Two claims, two citations, two documents, both
-> anchors verified byte-exact.
+> That couldn't have come from the question. The name wasn't in it.
+>
+> Bogart is now the second document in the context. Two of two. And the
+> answer — The African Queen — cites the sentence saying he won one of three
+> nominations.
 
 ---
 
-# 6 · Results — 7:45–8:45
+# 6 · Results — 8:00–9:00
 
 **ON SCREEN** Artifact page, Results tab.
 
@@ -258,9 +264,9 @@ python -m ctxlayer.cli ask "Who was in charge of the state where Graft-De Rijp i
 > Exact match 23.1 to 34, F1 30.7 to 41.4. All at a Holm-adjusted p of
 > 0.0012, from paired permutation tests.
 >
-> Closed-book scores zero and abstains on everything — that's the control
-> showing the model isn't answering from memory. And oracle is gold documents
-> handed in directly, so it's a ceiling, not a competitor.
+> Closed-book scores zero and abstains on everything — the control showing
+> the model isn't answering from memory. Oracle is gold documents handed in
+> directly: a ceiling, not a competitor.
 
 **Point at the hop chart:**
 
@@ -269,7 +275,7 @@ python -m ctxlayer.cli ask "Who was in charge of the state where Graft-De Rijp i
 
 ---
 
-# 7 · Ablations and the limitation — 8:45–9:35
+# 7 · Ablations and the limitation — 9:00–9:45
 
 **ON SCREEN** `EVAL.md` §5.
 
@@ -293,7 +299,7 @@ python -m ctxlayer.cli ask "Who was in charge of the state where Graft-De Rijp i
 
 ---
 
-# 8 · Reproducibility and close — 9:35–10:15
+# 8 · Reproducibility and close — 9:45–10:25
 
 **ON SCREEN** GitHub repo, then README.
 
@@ -302,9 +308,8 @@ python -m ctxlayer.cli ask "Who was in charge of the state where Graft-De Rijp i
 > here. Every run records the commit, the config fingerprint and the corpus
 > hash, and the report refuses to combine runs that disagree.
 >
-> The extractive evaluation reproduces with one command. The LLM evaluation
-> is separate and needs its own API key, and I've documented it that way
-> rather than implying everything runs at once.
+> The extractive evaluation reproduces with one command; the LLM evaluation
+> is a separate step needing its own key, and I've documented it that way.
 
 **ON SCREEN** Title slide.
 
@@ -320,9 +325,9 @@ python -m ctxlayer.cli ask "Who was in charge of the state where Graft-De Rijp i
 - [ ] Title slide
 - [ ] Artifact page — Mechanism, Results, Architecture tabs
 - [ ] `show_corpus.py`
-- [ ] `show_corpus.py --qid 2hop__130668_126089`
-- [ ] `ask --system hybrid_rerank` — the film noir, wrong answer, 1 of 2
-- [ ] `ask --system ours_llm` — 13 queries, the bridge, 2 citations
+- [ ] `show_corpus.py --qid 2hop__95773_51329`
+- [ ] `ask --system hybrid_rerank` — a pile of Oscar documents, no Bogart, 1 of 2
+- [ ] `ask --system ours_llm` — 9 queries, the `humphrey bogart` bridge, 2 of 2
 - [ ] `EVAL.md` §5 ablations and §9 limitations
 - [ ] GitHub repo and README
 - [ ] `OPENAI_API_KEY` set, all five commands pre-warmed
@@ -331,14 +336,17 @@ python -m ctxlayer.cli ask "Who was in charge of the state where Graft-De Rijp i
 
 Measured, not estimated:
 
-    speech, at 145 words per minute          9:00
-    command runtime on screen (4 commands)  ~1:15
+    speech, at 145 words per minute         9:16
+    command runtime on screen (5 commands)  ~1:10
                                             -----
-    unedited                                10:15
+    unedited                               10:25
 
-That is over the ceiling, and the fix is editing rather than cutting content.
-Almost all of the 1:15 is you sitting still while a warm command prints. Cut
-those waits in post and the recording lands near 9:30.
+Over the ceiling, and the fix is editing rather than cutting content. Nearly
+all of that 1:10 is you sitting still while a warm command prints. Cut those
+waits in post and the recording lands near 9:15.
+
+The section headers above are the UNEDITED timeline, so you can check your
+pace against the clock while recording.
 
 Two other things that protect the margin:
 
@@ -349,7 +357,7 @@ Two other things that protect the margin:
 
 If you still overrun, cut in this order and no further:
 
-1. §3 Architecture — 40s. The Mechanism tab already showed the loop.
+1. §3 Architecture — 35s. The Mechanism tab already showed the loop.
 2. The design-decision panel at the end of §2 — 20s.
 3. §4's title sample — 15s.
 

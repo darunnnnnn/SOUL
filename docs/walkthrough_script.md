@@ -45,109 +45,129 @@ Never autoplay.
 
 *Hold twenty seconds. This frame sets up everything.*
 
-> One question, two systems side by side. On the left, standard single-shot
-> retrieval. On the right, mine.
+> The question: in which city is the university attended by the founder of
+> Microsoft located? The answer is Cambridge, and getting there needs three
+> different documents.
+>
+> On the left, standard single-shot retrieval. On the right, mine.
 >
 > "Microsoft" is highlighted in the question. That colour means one thing
-> throughout: words the question actually contains.
+> throughout: words the question actually contains. And look at what the
+> question gives you — it names Microsoft, and nothing else. Not Bill Gates,
+> not Harvard, not Cambridge.
 >
-> The big box in each track is the document store. Everything's grey because
-> nothing's been retrieved yet — and notice there are no lines between the
-> documents. These are independent articles. Nothing says which ones belong
-> together, so every connection has to be found in the text.
+> The big box is the document store. Everything's grey because nothing's been
+> retrieved, and there are no lines between documents — these are independent
+> articles, so every connection has to be found in the text.
 >
-> Now the detail to watch. Above each store are query slots. The left system
-> has one, because it will only ever search once. The right has two, and the
-> second is empty.
->
-> Keep your eye on that empty box. Nothing in the question can fill it.
+> Now the thing to watch. The left system has one query box. The right has
+> three round-slots, and two of them are empty. Nothing in the question can
+> fill those two boxes.
 
-### Frame 2 — both fire, same result
+### Frame 2 — both run round 1, identically
 
-> Both search, and both get the same three documents back. They haven't
-> diverged yet — so whatever happens next isn't because one has a better
-> search engine.
+> Both search, and both get the same three documents. They haven't diverged —
+> so whatever happens next isn't because one has a better search engine.
 
 ### Frame 3 — the wrong document
 
-> Look at what came back second: "The Founder", a 2016 film about Ray Kroc and
-> a hamburger franchise.
->
-> It's here because it matched the word "founder". The retriever did its job
-> correctly and returned something useless.
+> Look at what came back: "The Founder", a 2016 film about Ray Kroc and a
+> hamburger franchise. It's here because it matched the word "founder". The
+> retriever did its job correctly and returned something useless.
 
-### Frame 4 — the left side ends
+### Frame 4 — the left column is finished
 
-> And the left system is done. One query, one of two documents.
+> And the left system is done. One query, one of three documents, no answer.
 >
 > The problem isn't that it was wrong. It's that it has no way of knowing it
-> was wrong — no signal that something's missing, so nothing triggers a second
-> attempt. It's over. The right side is still running.
+> was wrong — nothing signals that two documents are missing, so nothing
+> triggers a second attempt. It's over.
+>
+> The right side still has two empty rounds.
 
-### Frame 5 — reading
+### Frame 5 — round 1, reading
 
-> The right system reads what it retrieved instead of handing it straight to a
-> model. The entities it finds are underlined in a new colour — Redmond, Bill
+> My system reads what it retrieved instead of handing it straight to a
+> model. The entities it finds get underlined in a new colour — Redmond, Bill
 > Gates, Paul Allen.
 >
-> That colour change is the whole idea. These are words the question did not
+> That colour change is the whole idea: these are words the question did not
 > contain.
 
-### Frame 6 — the bridge
+### Frame 6 — bridge one
 
-*Slow down. This is the contribution.*
-
-> Here's the bridge. "Bill Gates" lifts out of the document text and lands in
-> that empty query slot.
+> So "Bill Gates" lifts out of the document and lands in round two's empty
+> query box.
 >
-> Watch where it comes from — not the question, but inside a document. The
-> question greys out to make the point: this query could not have been
-> produced from it.
+> Watch where it came from — not the question, but inside a document we just
+> read. The question greys out to make the point: it could not have produced
+> this query.
+
+### Frame 7 — round 2 retrieves, and the proof
+
+> Round two finds the Bill Gates document, and the evidence pile grows to
+> two.
 >
-> Then a second search fires, using the same indexes and the same reranker.
-> The only difference is where the query came from.
-
-### Frame 7 — the proof
-
-*The frame that closes the argument.*
-
-> The second document arrives, with "Harvard University" in it.
+> And here's the proof that one search could never have done this. Look at
+> this phrase — "the software company he had founded." This document never
+> says the word "Microsoft". Not once.
 >
-> But look at this phrase — "the software company he had founded." This
-> document never says the word "Microsoft". Not once.
->
-> That's why no single search could reach it. The distinctive word in the
-> question doesn't appear in the document holding the answer. You can't search
-> your way there — you have to read the first document and carry a name out of
-> it.
->
-> And that line between the two documents didn't exist in the store. The
-> system created it by reading.
+> The question's distinctive word simply isn't in the document. You can't
+> search your way there. You have to read the first document and carry a name
+> out of it.
 
-### Frame 8 — stopping
+### Frame 8 — reading again
 
-> It also has to know when to stop. A gauge measures how much another round
-> would add; it crosses the threshold and the loop halts itself.
+> And now the same thing happens again. We read the new document, and it
+> gives us words we didn't have before — "Harvard University".
+
+### Frame 9 — bridge two
+
+*The most important frame. Say it slowly.*
+
+> And this is the same move, a second time. "Harvard University" lifts out
+> and lands in round three's query box — exactly the motion you saw a moment
+> ago.
+>
+> That's the point of the whole system. It isn't one extra search. It's a
+> loop. Search, read, take a new word, search again, add what you find, read
+> that, take another new word, search again.
+>
+> Each round discovers the term that makes the next round possible. "Bill
+> Gates" only existed inside document one. "Harvard" only existed inside
+> document two. Neither was ever in the question.
+
+### Frame 10 — the chain completes
+
+> Round three finds the Harvard document, and there's the answer — Cambridge.
+>
+> Three rounds, three documents, and a chain the system built by reading:
+> Microsoft, to Bill Gates, to Harvard, to Cambridge. None of those links
+> existed in the store. It created them.
+
+### Frame 11 — stopping
+
+> It also has to know when to stop, or it'd search forever. A gauge measures
+> how much another round would add; it crosses the threshold and the loop
+> halts itself.
 >
 > On the real benchmark that fires on about 88% of questions, keeping the
 > average under two rounds instead of spending the full budget every time.
 
-### Frame 9 — the citation
+### Frame 12 — the answer and the comparison
 
-> The answer, and underneath it a citation: document, passage, sentence.
+> The answer, Cambridge, with three citations — document, passage, sentence.
 >
 > That's not a label. The byte offsets get re-resolved against the source and
-> compared character by character — if the cited text doesn't match exactly,
-> the citation is rejected. Across the real corpus that's 24,064 anchors, zero
+> compared character by character; if the text doesn't match exactly, the
+> citation is rejected. Across the real corpus that's 24,064 anchors, zero
 > mismatches.
-
-### Frame 10 — side by side
-
-> One query against two. One document against two. No answer against the right
-> answer with a verified citation.
 >
-> Same question, same indexes, same reranker. The only difference is that one
-> system read what it retrieved and searched again.
+> And side by side: one query against three. One document against three. No
+> answer against the right answer with verified citations.
+>
+> Same indexes, same reranker. The only difference is that one system read
+> what it retrieved and searched again.
 
 ### The panel below
 
@@ -229,7 +249,7 @@ python scripts/show_corpus.py --qid 2hop__130668_126089
 > A real question: who was in charge of the state where Graft-De Rijp is
 > located? It needs two of those 5,848 documents.
 >
-> Same trap as the Microsoft example — the question says "Graft-De Rijp" and
+> Same shape as the Microsoft chain, one link shorter — the question says "Graft-De Rijp" and
 > never says "North Holland", but Johan Remkes only appears in the North
 > Holland document. Unlike Microsoft and Bill Gates, no model has this
 > association memorised, which is exactly why the benchmark uses obscure
@@ -374,7 +394,7 @@ Cut in this order, and no further:
 2. The design-decision panel at the end of §2 — 20s.
 3. §4's title sample — 15s.
 
-**Never cut** frames 6 and 7 (the bridge and the proof), the live demo, or the
+**Never cut** frames 6, 7 and 9 (the two bridges and the proof), the live demo, or the
 limitation. Those are the submission.
 
 ## Three rules
